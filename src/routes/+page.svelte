@@ -1,20 +1,12 @@
 <script>
     import { onMount } from "svelte";
-    import {
-        loadFlightData,
-        dailyFlightCounts,
-        filteredFlights,
-        arrivalStateVectors,
-        departureStateVectors,
-        isLoading,
-        loadError,
-    } from "$lib/stores/flightData.js";
+    import { flightStore } from "$lib/stores/flightData.svelte.js";
     import DailyFlightChart from "$lib/components/DailyFlightChart.svelte";
     import FlightTimesScatter from "$lib/components/FlightTimesScatter.svelte";
     import FlightMap from "$lib/components/FlightMap.svelte";
 
     onMount(() => {
-        loadFlightData();
+        flightStore.loadData();
     });
 </script>
 
@@ -49,22 +41,22 @@
     </header>
 
     <main>
-        {#if $isLoading}
+        {#if flightStore.isLoading}
             <div class="loading">
                 <div class="spinner"></div>
                 <p>Chargement des données de vol...</p>
             </div>
-        {:else if $loadError}
+        {:else if flightStore.loadError}
             <div class="error">
-                <p>❌ Erreur lors du chargement: {$loadError}</p>
+                <p>❌ Erreur lors du chargement: {flightStore.loadError}</p>
             </div>
         {:else}
             <div class="charts">
-                <DailyFlightChart data={$dailyFlightCounts} />
-                <FlightTimesScatter data={$filteredFlights} />
+                <DailyFlightChart data={flightStore.dailyFlightCounts} />
+                <FlightTimesScatter data={flightStore.filteredFlights} />
                 <FlightMap
-                    arrivalStateVectors={$arrivalStateVectors}
-                    departureStateVectors={$departureStateVectors}
+                    arrivalStateVectors={flightStore.arrivalStateVectors}
+                    departureStateVectors={flightStore.departureStateVectors}
                     selectedDay={0}
                 />
             </div>

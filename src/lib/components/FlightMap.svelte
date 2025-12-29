@@ -80,7 +80,12 @@
     }
 
     function updateFlightPaths() {
-        if (!map || !arrivalStateVectors.length) return;
+        if (!map) return;
+
+        const arrivalsRaw = $state.snapshot(arrivalStateVectors);
+        const departuresRaw = $state.snapshot(departureStateVectors);
+
+        if (!arrivalsRaw || !arrivalsRaw.length) return;
 
         // Clear existing paths
         pathLayers.forEach((layer) => map.removeLayer(layer));
@@ -92,7 +97,7 @@
         const targetDateStr = targetDate.toISOString().split("T")[0];
 
         // Filter state vectors by selected date
-        const filteredArrivals = arrivalStateVectors.filter((sv) => {
+        const filteredArrivals = arrivalsRaw.filter((sv) => {
             if (!sv.arrival_date) return false;
             const dateStr = sv.arrival_date.toISOString().split("T")[0];
             return (
@@ -102,7 +107,7 @@
             );
         });
 
-        const filteredDepartures = departureStateVectors.filter((sv) => {
+        const filteredDepartures = departuresRaw.filter((sv) => {
             if (!sv.departure_date) return false;
             const dateStr = sv.departure_date.toISOString().split("T")[0];
             return (

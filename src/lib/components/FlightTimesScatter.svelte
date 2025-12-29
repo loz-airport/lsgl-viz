@@ -17,13 +17,18 @@
     });
 
     function renderChart() {
-        console.log("Rendering FlightTimesScatter with", data.length, "items");
+        const rawData = $state.snapshot(data);
+        console.log(
+            "Rendering FlightTimesScatter with",
+            rawData.length,
+            "items",
+        );
         // Clear previous chart
         if (!container) return;
         container.innerHTML = "";
 
         // Prepare data with time of day
-        const chartData = data
+        const chartData = rawData
             .map((flight) => {
                 const time =
                     flight.flight_type === "arrival"
@@ -71,67 +76,72 @@
             }
         });
 
-        const plot = Plot.plot({
-            marginLeft: 60,
-            marginBottom: 50,
-            width: Math.max(700, container.offsetWidth),
-            height: 500,
-            style: {
-                background: "transparent",
-                fontSize: "14px",
-                fontFamily: "Inter, system-ui, sans-serif",
-            },
-            x: {
-                type: "time",
-                label: null,
-                tickFormat: (d) =>
-                    new Intl.DateTimeFormat("fr-CH", {
-                        month: "short",
-                        day: "numeric",
-                    }).format(d),
-            },
-            y: {
-                label: "Heure de la journée",
-                domain: [0, 24],
-                ticks: 12,
-                tickFormat: (h) =>
-                    `${Math.floor(h).toString().padStart(2, "0")}:00`,
-                grid: true,
-            },
-            symbol: {
-                domain: ["arrival", "departure"],
-                range: ["triangle-down", "triangle"],
-            },
-            marks: [
-                // Curves for round trips
-                Plot.link(roundTrips, {
-                    x1: (d) => d.departure.date,
-                    y1: (d) => d.departure.timeOfDay,
-                    x2: (d) => d.arrival.date,
-                    y2: (d) => d.arrival.timeOfDay,
-                    stroke: "#666",
-                    strokeWidth: 1.5,
-                    opacity: 0.3,
-                    curve: "natural",
-                }),
-                // Points for all flights
-                Plot.dot(chartData, {
-                    x: "date",
-                    y: "timeOfDay",
-                    fill: "type",
-                    symbol: "type",
-                    r: 6,
-                    opacity: 0.8,
-                    tip: true,
-                    stroke: "white",
-                    strokeWidth: 0.5,
-                    title: (d) =>
-                        `${d.type === "arrival" ? "Arrivée" : "Départ"}\n${d.callSign || d.icao24}\n${d.formattedTime}`,
-                }),
-            ],
-        });
+        try {
+            const plot = Plot.plot({
+                marginLeft: 60,
+                marginBottom: 50,
+                width: container.offsetWidth > 0 ? container.offsetWidth : 700,
+                height: 500,
+                style: {
+                    background: "transparent",
+                    fontSize: "14px",
+                    fontFamily: "Inter, system-ui, sans-serif",
+                },
+                x: {
+                    type: "time",
+                    label: null,
+                    tickFormat: (d) =>
+                        new Intl.DateTimeFormat("fr-CH", {
+                            month: "short",
+                            day: "numeric",
+                        }).format(d),
+                },
+                y: {
+                    label: "Heure de la journée",
+                    domain: [0, 24],
+                    ticks: 12,
+                    tickFormat: (h) =>
+                        `${Math.floor(h).toString().padStart(2, "0")}:00`,
+                    grid: true,
+                },
+                symbol: {
+                    domain: ["arrival", "departure"],
+                    range: ["triangle-down", "triangle"],
+                },
+                marks: [
+                    // Curves for round trips
+                    Plot.link(roundTrips, {
+                        x1: (d) => d.departure.date,
+                        y1: (d) => d.departure.timeOfDay,
+                        x2: (d) => d.arrival.date,
+                        y2: (d) => d.arrival.timeOfDay,
+                        stroke: "#666",
+                        strokeWidth: 1.5,
+                        opacity: 0.3,
+                        curve: "natural",
+                    }),
+                    // Points for all flights
+                    Plot.dot(chartData, {
+                        x: "date",
+                        y: "timeOfDay",
+                        fill: "type",
+                        symbol: "type",
+                        r: 6,
+                        opacity: 0.8,
+                        tip: true,
+                        stroke: "white",
+                        strokeWidth: 0.5,
+                        title: (d) =>
+                            `${d.type === "arrival" ? "Arrivée" : "Départ"}\n${d.callSign || d.icao24}\n${d.formattedTime}`,
+                    }),
+                ],
+            });
 
-        container.appendChild(plot);
+            console.log("Plot generated:", !!plot);
+            if (plot) container.appendChild(plot);
+        } catch (e) {
+            console.error("Plot rendering failed:", e);
+        }
     }
 
     onMount(() => {

@@ -17,66 +17,71 @@
 	});
 
 	function renderChart() {
-		console.log("Rendering DailyFlightChart with", data.length, "items");
+		const rawData = $state.snapshot(data);
+		console.log("Rendering DailyFlightChart with", rawData.length, "items");
 		// Clear previous chart
 		if (!container) return;
 		container.innerHTML = "";
 
 		// Transform data for grouped bar chart
-		const chartData = data.flatMap((d) => [
+		const chartData = rawData.flatMap((d) => [
 			{ date: d.date, type: "Arrivées", count: d.arrivals },
 			{ date: d.date, type: "Départs", count: d.departures },
 		]);
 
 		console.log("Chart data prepared:", chartData.slice(0, 2));
 
-		const plot = Plot.plot({
-			marginLeft: 60,
-			marginBottom: 50,
-			width: container.offsetWidth > 0 ? container.offsetWidth : 600,
-			height: 400,
-			style: {
-				background: "transparent",
-				fontSize: "14px",
-				fontFamily: "Inter, system-ui, sans-serif",
-			},
-			x: {
-				type: "band",
-				label: null,
-				tickFormat: (d) => {
-					const date = new Date(d);
-					return new Intl.DateTimeFormat("fr-CH", {
-						month: "short",
-						day: "numeric",
-					}).format(date);
+		try {
+			const plot = Plot.plot({
+				marginLeft: 60,
+				marginBottom: 50,
+				width: container.offsetWidth > 0 ? container.offsetWidth : 600,
+				height: 400,
+				style: {
+					background: "transparent",
+					fontSize: "14px",
+					fontFamily: "Inter, system-ui, sans-serif",
 				},
-			},
-			y: {
-				label: "Nombre de vols",
-				grid: true,
-				nice: true,
-			},
-			color: {
-				domain: ["Arrivées", "Départs"],
-				range: ["#3b82f6", "#f97316"],
-				legend: true,
-			},
-			marks: [
-				Plot.barY(chartData, {
-					x: "type",
-					y: "count",
-					fill: "type",
-					fx: "date",
-					tip: true,
-					title: (d) =>
-						`${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`,
-				}),
-				Plot.ruleY([0]),
-			],
-		});
+				x: {
+					type: "band",
+					label: null,
+					tickFormat: (d) => {
+						const date = new Date(d);
+						return new Intl.DateTimeFormat("fr-CH", {
+							month: "short",
+							day: "numeric",
+						}).format(date);
+					},
+				},
+				y: {
+					label: "Nombre de vols",
+					grid: true,
+					nice: true,
+				},
+				color: {
+					domain: ["Arrivées", "Départs"],
+					range: ["#3b82f6", "#f97316"],
+					legend: true,
+				},
+				marks: [
+					Plot.barY(chartData, {
+						x: "type",
+						y: "count",
+						fill: "type",
+						fx: "date",
+						tip: true,
+						title: (d) =>
+							`${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`,
+					}),
+					Plot.ruleY([0]),
+				],
+			});
 
-		console.log("Plot generated:", !!plot);
-		container.appendChild(plot);
+			console.log("Plot generated:", !!plot);
+			if (plot) container.appendChild(plot);
+		} catch (e) {
+			console.error("Plot rendering failed:", e);
+		}
 	}
 
 	onMount(() => {
