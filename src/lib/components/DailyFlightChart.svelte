@@ -2,17 +2,24 @@
 	import * as Plot from "@observablehq/plot";
 	import { onMount } from "svelte";
 
-	/** @type {Array<{date: Date, arrivals: number, departures: number}>} */
-	export let data = [];
+	let { data = [] } = $props();
 
-	let container;
+	let container = $state();
 
-	$: if (container && data.length > 0) {
-		renderChart();
-	}
+	$effect(() => {
+		console.log("DailyFlightChart effect triggered", {
+			hasContainer: !!container,
+			dataLength: data.length,
+		});
+		if (container && data.length > 0) {
+			renderChart();
+		}
+	});
 
 	function renderChart() {
+		console.log("Rendering DailyFlightChart with", data.length, "items");
 		// Clear previous chart
+		if (!container) return;
 		container.innerHTML = "";
 
 		// Transform data for grouped bar chart
@@ -21,10 +28,12 @@
 			{ date: d.date, type: "Départs", count: d.departures },
 		]);
 
+		console.log("Chart data prepared:", chartData.slice(0, 2));
+
 		const plot = Plot.plot({
 			marginLeft: 60,
 			marginBottom: 50,
-			width: Math.max(600, container.offsetWidth),
+			width: container.offsetWidth > 0 ? container.offsetWidth : 600,
 			height: 400,
 			style: {
 				background: "transparent",
@@ -66,10 +75,12 @@
 			],
 		});
 
+		console.log("Plot generated:", !!plot);
 		container.appendChild(plot);
 	}
 
 	onMount(() => {
+		console.log("DailyFlightChart mounted", { hasContainer: !!container });
 		if (data.length > 0) {
 			renderChart();
 		}
@@ -106,7 +117,9 @@
 
 	.chart {
 		width: 100%;
+		min-height: 400px;
 		overflow-x: auto;
+		border: 1px dashed rgba(255, 255, 255, 0.1); /* Temporary debug border */
 	}
 
 	.empty-state {

@@ -28,7 +28,9 @@ export const dateRangeDays = writable(7);
 export const allFlights = derived(
     [arrivalsData, departuresData],
     ([$arrivalsData, $departuresData]) => {
-        return combineFlights($arrivalsData, $departuresData);
+        const combined = combineFlights($arrivalsData, $departuresData);
+        console.log(`allFlights updated: ${combined.length} flights`);
+        return combined;
     }
 );
 
@@ -36,6 +38,7 @@ export const allFlights = derived(
 export const filteredFlights = derived(
     [allFlights, dateRangeDays],
     ([$allFlights, $dateRangeDays]) => {
+        console.log(`Filtering ${$allFlights.length} flights for ${$dateRangeDays} days`);
         if (!$allFlights.length) return [];
 
         const arrivals = $allFlights.filter(f => f.flight_type === 'arrival');
@@ -44,7 +47,9 @@ export const filteredFlights = derived(
         const filteredArrivals = filterByDateRange(arrivals, $dateRangeDays, 'arrival_date');
         const filteredDepartures = filterByDateRange(departures, $dateRangeDays, 'departure_date');
 
-        return combineFlights(filteredArrivals, filteredDepartures);
+        const combined = combineFlights(filteredArrivals, filteredDepartures);
+        console.log(`filteredFlights updated: ${combined.length} flights`);
+        return combined;
     }
 );
 
@@ -74,7 +79,9 @@ export const dailyFlightCounts = derived(
             }
         });
 
-        return Object.values(counts).sort((a, b) => a.date - b.date);
+        const result = Object.values(counts).sort((a, b) => a.date - b.date);
+        console.log(`dailyFlightCounts updated: ${result.length} days`);
+        return result;
     }
 );
 

@@ -2,17 +2,24 @@
     import * as Plot from "@observablehq/plot";
     import { onMount } from "svelte";
 
-    /** @type {Array} */
-    export let data = [];
+    let { data = [] } = $props();
 
-    let container;
+    let container = $state();
 
-    $: if (container && data.length > 0) {
-        renderChart();
-    }
+    $effect(() => {
+        console.log("FlightTimesScatter effect triggered", {
+            hasContainer: !!container,
+            dataLength: data.length,
+        });
+        if (container && data.length > 0) {
+            renderChart();
+        }
+    });
 
     function renderChart() {
+        console.log("Rendering FlightTimesScatter with", data.length, "items");
         // Clear previous chart
+        if (!container) return;
         container.innerHTML = "";
 
         // Prepare data with time of day
@@ -128,6 +135,9 @@
     }
 
     onMount(() => {
+        console.log("FlightTimesScatter mounted", {
+            hasContainer: !!container,
+        });
         if (data.length > 0) {
             renderChart();
         }
@@ -171,7 +181,9 @@
 
     .chart {
         width: 100%;
+        min-height: 500px;
         overflow-x: auto;
+        border: 1px dashed rgba(255, 255, 255, 0.1); /* Temporary debug border */
     }
 
     .empty-state {

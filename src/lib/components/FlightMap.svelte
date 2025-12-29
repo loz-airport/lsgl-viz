@@ -1,19 +1,18 @@
-<script>
     import { onMount, onDestroy } from "svelte";
+    import { browser } from "$app/environment";
     import L from "leaflet";
     import "leaflet/dist/leaflet.css";
 
-    /** @type {Array<any>} */
-    export let arrivalStateVectors = [];
-    /** @type {Array<any>} */
-    export let departureStateVectors = [];
-    /** @type {number} */
-    export let selectedDay = 0; // 0 = today, 1 = yesterday, etc.
+    let {
+        arrivalStateVectors = [],
+        departureStateVectors = [],
+        selectedDay = 0,
+    } = $props();
 
     /** @type {HTMLDivElement} */
-    let mapContainer;
+    let mapContainer = $state();
     /** @type {any} */
-    let map;
+    let map; // No need for $state if not used in template
     /** @type {Array<any>} */
     let pathLayers = [];
 
@@ -21,16 +20,32 @@
     const LSGL_LAT = 46.545;
     const LSGL_LON = 6.617;
 
-    $: if (map) {
-        updateFlightPaths();
-    }
+    $effect(() => {
+        console.log("FlightMap effect triggered", {
+            hasMap: !!map,
+            svLength: arrivalStateVectors.length,
+        });
+        if (map) {
+            updateFlightPaths();
+        }
+    });
 
     function initMap() {
-        map = L.map(mapContainer, {
-            center: [LSGL_LAT, LSGL_LON],
-            zoom: 9,
-            zoomControl: true,
-        });
+        if (!browser || !mapContainer) return;
+        console.log("Initializing map on container with size:", mapContainer.offsetWidth, "x", mapContainer.offsetHeight);
+        
+        try {
+            if (map) {
+                map.remove();
+            }
+
+            map = L.map(mapContainer, {
+                center: [LSGL_LAT, LSGL_LON],
+                zoom: 9,
+                zoomControl: true,
+            });
+
+            console.log("Map instance created");
 
         // Dark mode tile layer
         L.tileLayer(
@@ -52,7 +67,9 @@
 
         L.marker([LSGL_LAT, LSGL_LON], { icon: airportIcon })
             .addTo(map)
-            .bindPopup("<strong>LSGL</strong><br>Lausanne-Blécherette");
+        } catch (e) {
+            console.error("Leaflet initialization failed:", e);
+        }
     }
 
     function updateFlightPaths() {
@@ -162,6 +179,7 @@
     }
 
     onMount(() => {
+        console.log("FlightMap mounted", { hasContainer: !!mapContainer });
         initMap();
     });
 
