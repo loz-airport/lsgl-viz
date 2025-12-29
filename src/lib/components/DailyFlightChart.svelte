@@ -42,9 +42,9 @@
 					fontSize: "14px",
 					fontFamily: "Inter, system-ui, sans-serif",
 				},
-				x: {
-					type: "band",
+				fx: {
 					label: null,
+					axis: "bottom",
 					tickFormat: (d) => {
 						const date = new Date(d);
 						return new Intl.DateTimeFormat("fr-CH", {
@@ -52,6 +52,9 @@
 							day: "numeric",
 						}).format(date);
 					},
+				},
+				x: {
+					axis: null,
 				},
 				y: {
 					label: "Nombre de vols",

@@ -106,7 +106,7 @@
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: ["triangle-down", "triangle"],
+                    range: ["triangle", "circle"],
                 },
                 marks: [
                     // Curves for round trips
@@ -115,9 +115,9 @@
                         y1: (d) => d.departure.timeOfDay,
                         x2: (d) => d.arrival.date,
                         y2: (d) => d.arrival.timeOfDay,
-                        stroke: "#666",
-                        strokeWidth: 1.5,
-                        opacity: 0.3,
+                        stroke: "#ffffff",
+                        strokeWidth: 1,
+                        opacity: 0.2,
                         curve: "natural",
                     }),
                     // Points for all flights
@@ -126,7 +126,7 @@
                         y: "timeOfDay",
                         fill: "type",
                         symbol: "type",
-                        r: 6,
+                        r: 5,
                         opacity: 0.8,
                         tip: true,
                         stroke: "white",

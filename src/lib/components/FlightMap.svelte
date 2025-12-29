@@ -82,10 +82,10 @@
     function updateFlightPaths() {
         if (!map) return;
 
-        const arrivalsRaw = $state.snapshot(arrivalStateVectors);
-        const departuresRaw = $state.snapshot(departureStateVectors);
+        const arrivalsRaw = $state.snapshot(arrivalStateVectors) || [];
+        const departuresRaw = $state.snapshot(departureStateVectors) || [];
 
-        if (!arrivalsRaw || !arrivalsRaw.length) return;
+        if (!arrivalsRaw.length && !departuresRaw.length) return;
 
         // Clear existing paths
         pathLayers.forEach((layer) => map.removeLayer(layer));
