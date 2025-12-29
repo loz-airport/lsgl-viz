@@ -1,3 +1,4 @@
+<script>
     import { onMount, onDestroy } from "svelte";
     import { browser } from "$app/environment";
     import L from "leaflet";
@@ -32,8 +33,13 @@
 
     function initMap() {
         if (!browser || !mapContainer) return;
-        console.log("Initializing map on container with size:", mapContainer.offsetWidth, "x", mapContainer.offsetHeight);
-        
+        console.log(
+            "Initializing map on container with size:",
+            mapContainer.offsetWidth,
+            "x",
+            mapContainer.offsetHeight,
+        );
+
         try {
             if (map) {
                 map.remove();
@@ -47,26 +53,27 @@
 
             console.log("Map instance created");
 
-        // Dark mode tile layer
-        L.tileLayer(
-            "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-            {
-                attribution:
-                    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: "abcd",
-                maxZoom: 20,
-            },
-        ).addTo(map);
+            // Dark mode tile layer
+            L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                {
+                    attribution:
+                        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: "abcd",
+                    maxZoom: 20,
+                },
+            ).addTo(map);
 
-        // Add airport marker
-        const airportIcon = L.divIcon({
-            className: "airport-marker",
-            html: '<div class="pulse">✈</div>',
-            iconSize: [30, 30],
-        });
+            // Add airport marker
+            const airportIcon = L.divIcon({
+                className: "airport-marker",
+                html: '<div class="pulse">✈</div>',
+                iconSize: [30, 30],
+            });
 
-        L.marker([LSGL_LAT, LSGL_LON], { icon: airportIcon })
-            .addTo(map)
+            L.marker([LSGL_LAT, LSGL_LON], { icon: airportIcon })
+                .addTo(map)
+                .bindPopup("<strong>LSGL</strong><br>Lausanne-Blécherette");
         } catch (e) {
             console.error("Leaflet initialization failed:", e);
         }
