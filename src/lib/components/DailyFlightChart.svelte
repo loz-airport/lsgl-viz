@@ -7,10 +7,6 @@
 	let container = $state();
 
 	$effect(() => {
-		console.log("DailyFlightChart effect triggered", {
-			hasContainer: !!container,
-			dataLength: data.length,
-		});
 		if (container && data.length > 0) {
 			renderChart();
 		}
@@ -18,7 +14,6 @@
 
 	function renderChart() {
 		const rawData = $state.snapshot(data);
-		console.log("Rendering DailyFlightChart with", rawData.length, "items");
 		// Clear previous chart
 		if (!container) return;
 		container.innerHTML = "";
@@ -28,8 +23,6 @@
 			{ date: d.date, type: "Arrivées", count: d.arrivals },
 			{ date: d.date, type: "Départs", count: d.departures },
 		]);
-
-		console.log("Chart data prepared:", chartData.slice(0, 2));
 
 		try {
 			const plot = Plot.plot({
@@ -80,7 +73,6 @@
 				],
 			});
 
-			console.log("Plot generated:", !!plot);
 			if (plot) container.appendChild(plot);
 		} catch (e) {
 			console.error("Plot rendering failed:", e);
@@ -88,7 +80,6 @@
 	}
 
 	onMount(() => {
-		console.log("DailyFlightChart mounted", { hasContainer: !!container });
 		if (data.length > 0) {
 			renderChart();
 		}
@@ -127,7 +118,6 @@
 		width: 100%;
 		min-height: 400px;
 		overflow-x: auto;
-		border: 1px dashed rgba(255, 255, 255, 0.1); /* Temporary debug border */
 	}
 
 	.empty-state {

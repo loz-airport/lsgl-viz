@@ -193,7 +193,6 @@
         width: 100%;
         min-height: 500px;
         overflow-x: auto;
-        border: 1px dashed rgba(255, 255, 255, 0.1); /* Temporary debug border */
     }
 
     .empty-state {

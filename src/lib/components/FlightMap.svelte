@@ -22,10 +22,6 @@
     const LSGL_LON = 6.617;
 
     $effect(() => {
-        console.log("FlightMap effect triggered", {
-            hasMap: !!map,
-            svLength: arrivalStateVectors.length,
-        });
         if (map) {
             updateFlightPaths();
         }
@@ -33,12 +29,6 @@
 
     function initMap() {
         if (!browser || !mapContainer) return;
-        console.log(
-            "Initializing map on container with size:",
-            mapContainer.offsetWidth,
-            "x",
-            mapContainer.offsetHeight,
-        );
 
         try {
             if (map) {
@@ -50,8 +40,6 @@
                 zoom: 9,
                 zoomControl: true,
             });
-
-            console.log("Map instance created");
 
             // Dark mode tile layer
             L.tileLayer(
@@ -191,7 +179,6 @@
     }
 
     onMount(() => {
-        console.log("FlightMap mounted", { hasContainer: !!mapContainer });
         initMap();
     });
 
