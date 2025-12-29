@@ -91,9 +91,9 @@
                     `${Math.floor(h).toString().padStart(2, "0")}:00`,
                 grid: true,
             },
-            color: {
+            symbol: {
                 domain: ["arrival", "departure"],
-                range: ["#3b82f6", "#f97316"],
+                range: ["triangle-down", "triangle"],
             },
             marks: [
                 // Curves for round trips
@@ -112,11 +112,12 @@
                     x: "date",
                     y: "timeOfDay",
                     fill: "type",
-                    symbol: (d) =>
-                        d.type === "arrival" ? "triangle-down" : "triangle",
+                    symbol: "type",
                     r: 6,
                     opacity: 0.8,
                     tip: true,
+                    stroke: "white",
+                    strokeWidth: 0.5,
                     title: (d) =>
                         `${d.type === "arrival" ? "Arrivée" : "Départ"}\n${d.callSign || d.icao24}\n${d.formattedTime}`,
                 }),

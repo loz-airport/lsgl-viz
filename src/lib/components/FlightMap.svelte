@@ -56,24 +56,36 @@
     }
 
     function updateFlightPaths() {
+        if (!map || !arrivalStateVectors.length) return;
+
         // Clear existing paths
         pathLayers.forEach((layer) => map.removeLayer(layer));
         pathLayers = [];
 
-        // Calculate date filter
+        // Calculate target date string
         const targetDate = new Date();
         targetDate.setDate(targetDate.getDate() - selectedDay);
         const targetDateStr = targetDate.toISOString().split("T")[0];
 
         // Filter state vectors by selected date
         const filteredArrivals = arrivalStateVectors.filter((sv) => {
-            const dateStr = sv.arrival_date?.toISOString().split("T")[0];
-            return dateStr === targetDateStr && sv.latitude && sv.longitude;
+            if (!sv.arrival_date) return false;
+            const dateStr = sv.arrival_date.toISOString().split("T")[0];
+            return (
+                dateStr === targetDateStr &&
+                sv.latitude != null &&
+                sv.longitude != null
+            );
         });
 
         const filteredDepartures = departureStateVectors.filter((sv) => {
-            const dateStr = sv.departure_date?.toISOString().split("T")[0];
-            return dateStr === targetDateStr && sv.latitude && sv.longitude;
+            if (!sv.departure_date) return false;
+            const dateStr = sv.departure_date.toISOString().split("T")[0];
+            return (
+                dateStr === targetDateStr &&
+                sv.latitude != null &&
+                sv.longitude != null
+            );
         });
 
         // Group by flight ID
@@ -86,9 +98,10 @@
 
             const latlngs = points.map((p) => [p.latitude, p.longitude]);
             const polyline = L.polyline(latlngs, {
-                color: "#3b82f6",
-                weight: 2,
-                opacity: 0.7,
+                color: "#60a5fa", // Brighter blue
+                weight: 3,
+                opacity: 0.8,
+                smoothFactor: 1,
             }).addTo(map);
 
             polyline.bindPopup(
@@ -103,9 +116,10 @@
 
             const latlngs = points.map((p) => [p.latitude, p.longitude]);
             const polyline = L.polyline(latlngs, {
-                color: "#f97316",
-                weight: 2,
-                opacity: 0.7,
+                color: "#fb923c", // Brighter orange
+                weight: 3,
+                opacity: 0.8,
+                smoothFactor: 1,
             }).addTo(map);
 
             polyline.bindPopup(
@@ -113,6 +127,15 @@
             );
             pathLayers.push(polyline);
         });
+
+        // Fit map bounds to paths if any exist
+        if (pathLayers.length > 0) {
+            const group = new L.featureGroup(pathLayers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        } else {
+            // Center on airport if no paths
+            map.setView([LSGL_LAT, LSGL_LON], 11);
+        }
     }
 
     /**
