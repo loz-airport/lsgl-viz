@@ -11,6 +11,11 @@
     let hoveredFlight = $state(null);
     // tooltipPos is no longer needed as the tooltip is now a fixed panel
 
+    // Helper function to check if a value is valid (not NA, null, undefined, or empty)
+    function isValidValue(value) {
+        return value && value !== 'NA' && value !== 'null' && String(value).trim() !== '';
+    }
+
     $effect(() => {
         if (container && data.length > 0) {
             renderChart();
@@ -234,24 +239,48 @@
 
             {#if hoveredFlight.metadata}
                 <div class="metadata-info">
-                    <div class="model">
-                        {hoveredFlight.metadata.model || "Modèle inconnu"}
-                    </div>
+                    {#if isValidValue(hoveredFlight.metadata.model)}
+                        <div class="model">
+                            <strong>Modèle:</strong> {hoveredFlight.metadata.model}
+                        </div>
+                    {:else}
+                        <div class="model" style="color: rgba(255, 255, 255, 0.5);">
+                            <strong>Modèle:</strong> Inconnu
+                        </div>
+                    {/if}
                     <div class="registration">
-                        {#if hoveredFlight.metadata.country_of_registration}
-                            <span class="flag">📍</span>
-                            {hoveredFlight.metadata.country_of_registration}
+                        {#if isValidValue(hoveredFlight.metadata.origin_country)}
+                            <strong>Pays d'immatriculation:</strong> {hoveredFlight.metadata.origin_country}
+                        {:else}
+                            <span style="color: rgba(255, 255, 255, 0.5);">Pays d'immatriculation: Inconnu</span>
                         {/if}
                     </div>
                 </div>
-                {#if hoveredFlight.metadata.photo_url}
+                {#if isValidValue(hoveredFlight.metadata.photo_url)}
                     <div class="aircraft-img">
                         <img
                             src={hoveredFlight.metadata.photo_url}
                             alt="Aircraft"
+                            onerror={(e) => { 
+                                e.target.style.display = 'none';
+                                const container = e.target.parentElement;
+                                if (container) {
+                                    container.innerHTML = '<div class="no-photo"><span>Photo non disponible</span></div>';
+                                }
+                            }}
                         />
                     </div>
+                {:else}
+                    <div class="no-photo">
+                        <span>Photo non disponible</span>
+                    </div>
                 {/if}
+            {:else}
+                <div class="metadata-info">
+                    <div style="color: rgba(255, 255, 255, 0.5);">
+                        Métadonnées de l'appareil non disponibles
+                    </div>
+                </div>
             {/if}
         </div>
     {:else}
@@ -407,12 +436,23 @@
         font-size: 14px;
         font-weight: 500;
         color: #cbd5e1;
+        margin-bottom: 8px;
     }
 
     .registration {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.6);
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
         margin-top: 4px;
+    }
+
+    .no-photo {
+        margin-top: 16px;
+        padding: 20px;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 12px;
+        border: 1px dashed rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
     }
 
     .aircraft-img {

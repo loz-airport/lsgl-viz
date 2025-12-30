@@ -5,59 +5,6 @@
     import FlightTimesScatter from "$lib/components/FlightTimesScatter.svelte";
     import FlightMap from "$lib/components/FlightMap.svelte";
 
-    let selectedDateRange = "7";
-
-    // Generate date range options
-    const dateRangeOptions = [
-        { value: "3", label: "3 derniers jours" },
-        { value: "7", label: "7 derniers jours" },
-    ];
-
-    // Add 7-day ranges up to 30 days (non-overlapping)
-    // Week 1: days 7-13 ago, Week 2: days 14-20 ago, Week 3: days 21-27 ago, Week 4: days 28-30 ago
-    for (let week = 1; week <= 4; week++) {
-        const daysAgoStart = week * 7; // Newest day in the range (e.g., 7 days ago for week 1)
-        const daysAgoEnd = Math.min(daysAgoStart + 6, 30); // Oldest day in the range (e.g., 13 days ago for week 1)
-        
-        // startDate is the oldest date (furthest in the past)
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - daysAgoEnd);
-        startDate.setHours(0, 0, 0, 0);
-        
-        // endDate is the newest date (closest to today)
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() - daysAgoStart);
-        endDate.setHours(23, 59, 59, 999);
-        
-        // Only add if the range is valid (at least 1 day)
-        if (daysAgoEnd >= daysAgoStart) {
-            dateRangeOptions.push({
-                value: `week-${week}`,
-                label: `7 derniers jours (semaine ${week})`,
-                startDate,
-                endDate
-            });
-        }
-    }
-
-    function handleDateRangeChange() {
-        const option = dateRangeOptions.find(opt => opt.value === selectedDateRange);
-        if (!option) return;
-
-        if (option.startDate && option.endDate) {
-            // Date range (week)
-            flightStore.setDateRange(null, option.startDate, option.endDate);
-        } else {
-            // Number of days
-            const days = parseInt(option.value);
-            flightStore.setDateRange(days, null, null);
-        }
-    }
-
-    $effect(() => {
-        handleDateRangeChange();
-    });
-
     onMount(() => {
         flightStore.loadData();
     });
@@ -88,14 +35,7 @@
                 </div>
             </div>
             <div class="info">
-                <label class="date-selector-label">
-                    Période:
-                    <select bind:value={selectedDateRange} class="date-selector">
-                        {#each dateRangeOptions as option}
-                            <option value={option.value}>{option.label}</option>
-                        {/each}
-                    </select>
-                </label>
+                <span class="badge">Visualisation des vols</span>
             </div>
         </div>
     </header>
@@ -117,9 +57,6 @@
                 <FlightMap
                     arrivalStateVectors={flightStore.arrivalStateVectors}
                     departureStateVectors={flightStore.departureStateVectors}
-                    dateRangeDays={flightStore.dateRangeDays}
-                    dateRangeStart={flightStore.dateRangeStart}
-                    dateRangeEnd={flightStore.dateRangeEnd}
                 />
             </div>
         {/if}
@@ -193,16 +130,7 @@
         color: rgba(255, 255, 255, 0.7);
     }
 
-    .date-selector-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 14px;
-        font-weight: 500;
-    }
-
-    .date-selector {
+    .badge {
         background: rgba(59, 130, 246, 0.2);
         color: #60a5fa;
         padding: 6px 16px;
@@ -210,19 +138,6 @@
         font-size: 14px;
         font-weight: 500;
         border: 1px solid rgba(59, 130, 246, 0.3);
-        cursor: pointer;
-        transition: background 0.2s, border-color 0.2s;
-    }
-
-    .date-selector:hover {
-        background: rgba(59, 130, 246, 0.3);
-        border-color: rgba(59, 130, 246, 0.5);
-    }
-
-    .date-selector:focus {
-        outline: none;
-        border-color: rgba(59, 130, 246, 0.6);
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
 
     main {

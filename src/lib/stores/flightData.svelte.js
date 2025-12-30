@@ -60,7 +60,8 @@ class FlightStore {
             // Convert ICAO24 to string and normalize for comparison
             const flightIcao = flight.ICAO24 ? String(flight.ICAO24).toLowerCase() : null;
             const metadata = this.aircraftMetadata.find(m => {
-                const metaIcao = m.icao24 ? String(m.icao24).toLowerCase() : null;
+                // CSV uses ICAO24 (uppercase), but check both cases
+                const metaIcao = (m.ICAO24 || m.icao24) ? String(m.ICAO24 || m.icao24).toLowerCase() : null;
                 return metaIcao && flightIcao && metaIcao === flightIcao;
             });
             return {

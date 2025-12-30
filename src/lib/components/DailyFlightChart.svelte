@@ -43,8 +43,14 @@
 						fill: "type",
 						fx: "date",
 						tip: true,
-						title: (d) =>
-							`${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`,
+						title: (d) => {
+							const dateStr = new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							}).format(d.date);
+							return `${dateStr}\n${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`;
+						},
 					}),
 					Plot.ruleY([0]),
 				];
@@ -58,7 +64,14 @@
 						strokeWidth: 2,
 						curve: "monotone-x",
 						tip: true,
-						title: (d) => `Arrivées: ${d.arrivals}`,
+						title: (d) => {
+							const dateStr = new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							}).format(d.date);
+							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+						},
 					}),
 					Plot.lineY(rawData, {
 						x: "date",
@@ -67,19 +80,44 @@
 						strokeWidth: 2,
 						curve: "monotone-x",
 						tip: true,
-						title: (d) => `Départs: ${d.departures}`,
+						title: (d) => {
+							const dateStr = new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							}).format(d.date);
+							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+						},
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "arrivals",
 						fill: "#3b82f6",
 						r: 3,
+						tip: true,
+						title: (d) => {
+							const dateStr = new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							}).format(d.date);
+							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+						},
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "departures",
 						fill: "#f97316",
 						r: 3,
+						tip: true,
+						title: (d) => {
+							const dateStr = new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							}).format(d.date);
+							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+						},
 					}),
 					Plot.ruleY([0]),
 				];
