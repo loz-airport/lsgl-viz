@@ -5,6 +5,22 @@
 import Papa from 'papaparse';
 
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/loz-airport/LSGL_tracker/master/data_raw';
+const FETCH_TIMEOUT = 30000; // 30 seconds
+
+/**
+ * Fetch with timeout
+ * @param {string} url - URL to fetch
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise<Response>}
+ */
+function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
+	return Promise.race([
+		fetch(url),
+		new Promise((_, reject) =>
+			setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout)
+		)
+	]);
+}
 
 /**
  * Fetch and parse a CSV file from GitHub
@@ -13,25 +29,28 @@ const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/loz-airport/LSGL_trac
  */
 export async function fetchCSV(filename) {
 	const url = `${GITHUB_RAW_BASE}/${filename}`;
-	
+
 	try {
-		const response = await fetch(url);
+		console.log(`Fetching ${filename}...`);
+		const response = await fetchWithTimeout(url);
+		
 		if (!response.ok) {
-			throw new Error(`Failed to fetch ${filename}: ${response.statusText}`);
+			throw new Error(`Failed to fetch ${filename}: ${response.status} ${response.statusText}`);
 		}
-		
+
 		const csvText = await response.text();
-		
+
 		return new Promise((resolve, reject) => {
 			Papa.parse(csvText, {
 				header: true,
 				dynamicTyping: true,
 				skipEmptyLines: true,
 				complete: (results) => {
+					console.log(`Successfully parsed ${filename}: ${results.data.length} rows`);
 					resolve(results.data);
 				},
 				error: (error) => {
-					reject(error);
+					reject(new Error(`Failed to parse CSV ${filename}: ${error.message}`));
 				}
 			});
 		});
@@ -83,15 +102,19 @@ export function filterByDateRange(data, days = 7, dateField = 'departure_date') 
 	const cutoffDate = new Date();
 	cutoffDate.setDate(cutoffDate.getDate() - days);
 	cutoffDate.setHours(0, 0, 0, 0);
-	
+
 	return data.filter(row => {
 		const date = row[dateField];
-		return date && date >= cutoffDate;
+		// Check if date is valid
+		if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+			return false;
+		}
+		return date >= cutoffDate;
 	});
 }
 
 /**
- * Combine arrivals and departures data
+ * Combined flight data
  * @param {Array} arrivals - Arrival flight data
  * @param {Array} departures - Departure flight data
  * @returns {Array} Combined flight data
@@ -102,4 +125,41 @@ export function combineFlights(arrivals, departures) {
 		const dateB = b.departure_date || b.arrival_date;
 		return dateA - dateB;
 	});
+}
+
+/**
+ * Fetch aircraft metadata from GitHub
+ * @returns {Promise<Array>} Parsed CSV data
+ */
+export async function fetchAircraftMetadata() {
+	const url = 'https://raw.githubusercontent.com/loz-airport/LSGL_tracker/refs/heads/master/data_raw/aircraft_metadata.csv';
+
+	try {
+		console.log('Fetching aircraft metadata...');
+		const response = await fetchWithTimeout(url);
+		
+		if (!response.ok) {
+			throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
+		}
+
+		const csvText = await response.text();
+
+		return new Promise((resolve, reject) => {
+			Papa.parse(csvText, {
+				header: true,
+				dynamicTyping: true,
+				skipEmptyLines: true,
+				complete: (results) => {
+					console.log(`Successfully parsed metadata: ${results.data.length} rows`);
+					resolve(results.data);
+				},
+				error: (error) => {
+					reject(new Error(`Failed to parse metadata CSV: ${error.message}`));
+				}
+			});
+		});
+	} catch (error) {
+		console.error(`Error fetching aircraft metadata:`, error);
+		return []; // Return empty if failed
+	}
 }

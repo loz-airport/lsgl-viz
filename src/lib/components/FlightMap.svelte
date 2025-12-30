@@ -7,13 +7,15 @@
     let {
         arrivalStateVectors = [],
         departureStateVectors = [],
-        selectedDay = 0,
+        dateRangeDays = 7,
+        dateRangeStart = null,
+        dateRangeEnd = null,
     } = $props();
 
     /** @type {HTMLDivElement} */
     let mapContainer = $state();
     /** @type {any} */
-    let map; // No need for $state if not used in template
+    let map;
     /** @type {Array<any>} */
     let pathLayers = [];
 
@@ -22,7 +24,8 @@
     const LSGL_LON = 6.617;
 
     $effect(() => {
-        if (map) {
+        // React to changes in state vectors and date range
+        if (map && (arrivalStateVectors.length > 0 || departureStateVectors.length > 0 || dateRangeDays !== undefined || dateRangeStart !== null || dateRangeEnd !== null)) {
             updateFlightPaths();
         }
     });
@@ -68,90 +71,167 @@
     }
 
     function updateFlightPaths() {
-        if (!map) return;
+        if (!map) {
+            console.log("FlightMap: Map not initialized yet");
+            return;
+        }
 
         const arrivalsRaw = $state.snapshot(arrivalStateVectors) || [];
         const departuresRaw = $state.snapshot(departureStateVectors) || [];
 
-        if (!arrivalsRaw.length && !departuresRaw.length) return;
+        console.log(`FlightMap: Updating paths with ${arrivalsRaw.length} arrivals and ${departuresRaw.length} departures`);
+
+        // Don't return early - we still want to show the map even if there's no data
 
         // Clear existing paths
         pathLayers.forEach((layer) => map.removeLayer(layer));
         pathLayers = [];
 
-        // Calculate target date string
-        const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() - selectedDay);
-        const targetDateStr = targetDate.toISOString().split("T")[0];
+        // Calculate date range
+        let startDate, endDate;
+        if (dateRangeStart && dateRangeEnd) {
+            // Use provided date range
+            startDate = new Date(dateRangeStart);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(dateRangeEnd);
+            endDate.setHours(23, 59, 59, 999);
+        } else {
+            // Use number of days
+            endDate = new Date();
+            endDate.setHours(23, 59, 59, 999);
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - dateRangeDays);
+            startDate.setHours(0, 0, 0, 0);
+        }
 
-        // Filter state vectors by selected date
+        // Filter state vectors by date range
         const filteredArrivals = arrivalsRaw.filter((sv) => {
-            if (!sv.arrival_date) return false;
-            const dateStr = sv.arrival_date.toISOString().split("T")[0];
-            return (
-                dateStr === targetDateStr &&
-                sv.latitude != null &&
-                sv.longitude != null
-            );
+            if (!sv.arrival_date || !(sv.arrival_date instanceof Date) || isNaN(sv.arrival_date.getTime())) {
+                return false;
+            }
+            try {
+                const date = sv.arrival_date;
+                return (
+                    date >= startDate &&
+                    date <= endDate &&
+                    sv.latitude != null &&
+                    sv.longitude != null &&
+                    !isNaN(sv.latitude) &&
+                    !isNaN(sv.longitude)
+                );
+            } catch (e) {
+                return false;
+            }
         });
 
         const filteredDepartures = departuresRaw.filter((sv) => {
-            if (!sv.departure_date) return false;
-            const dateStr = sv.departure_date.toISOString().split("T")[0];
-            return (
-                dateStr === targetDateStr &&
-                sv.latitude != null &&
-                sv.longitude != null
-            );
+            if (!sv.departure_date || !(sv.departure_date instanceof Date) || isNaN(sv.departure_date.getTime())) {
+                return false;
+            }
+            try {
+                const date = sv.departure_date;
+                return (
+                    date >= startDate &&
+                    date <= endDate &&
+                    sv.latitude != null &&
+                    sv.longitude != null &&
+                    !isNaN(sv.latitude) &&
+                    !isNaN(sv.longitude)
+                );
+            } catch (e) {
+                return false;
+            }
         });
 
         // Group by flight ID
         const arrivalPaths = groupByFlightId(filteredArrivals);
         const departurePaths = groupByFlightId(filteredDepartures);
 
+        // Function to draw multi-segment colored paths based on altitude
+        const drawPath = (pathPoints, baseColor) => {
+            if (pathPoints.length < 2) return;
+
+            // Draw as multiple segments to have varying width/opacity per altitude
+            for (let i = 0; i < pathPoints.length - 1; i++) {
+                const p1 = pathPoints[i];
+                const p2 = pathPoints[i + 1];
+
+                // Use log altitude (clamped) to determine width/opacity
+                // Standard cruise at 30k ft -> 10k meters
+                // Alt is in meters
+                const avgAlt = Math.max(
+                    1,
+                    ((p1.altitude || 0) + (p2.altitude || 0)) / 2,
+                );
+                const logAlt = Math.log10(avgAlt);
+
+                // High altitude = thinner line (Inverse related)
+                // logAlt range approx 0 (ground) to 4 (10,000m)
+                const weight = Math.max(0.5, 5 - logAlt);
+                const opacity = Math.max(0.1, 1 - logAlt / 5);
+
+                const polyline = L.polyline(
+                    [
+                        [p1.latitude, p1.longitude],
+                        [p2.latitude, p2.longitude],
+                    ],
+                    {
+                        color: baseColor,
+                        weight: weight * 1.5,
+                        opacity: opacity,
+                        smoothFactor: 1,
+                    },
+                ).addTo(map);
+
+                pathLayers.push(polyline);
+            }
+        };
+
         // Draw arrival paths (blue)
-        Object.entries(arrivalPaths).forEach(([id, points]) => {
-            if (points.length < 2) return;
-
-            const latlngs = points.map((p) => [p.latitude, p.longitude]);
-            const polyline = L.polyline(latlngs, {
-                color: "#60a5fa", // Brighter blue
-                weight: 3,
-                opacity: 0.8,
-                smoothFactor: 1,
-            }).addTo(map);
-
-            polyline.bindPopup(
-                `<strong>Arrivée</strong><br>ICAO: ${points[0].ICAO24}<br>Points: ${points.length}`,
-            );
-            pathLayers.push(polyline);
-        });
+        Object.values(arrivalPaths).forEach((points) =>
+            drawPath(points, "#60a5fa"),
+        );
 
         // Draw departure paths (orange)
-        Object.entries(departurePaths).forEach(([id, points]) => {
-            if (points.length < 2) return;
-
-            const latlngs = points.map((p) => [p.latitude, p.longitude]);
-            const polyline = L.polyline(latlngs, {
-                color: "#fb923c", // Brighter orange
-                weight: 3,
-                opacity: 0.8,
-                smoothFactor: 1,
-            }).addTo(map);
-
-            polyline.bindPopup(
-                `<strong>Départ</strong><br>ICAO: ${points[0].ICAO24}<br>Points: ${points.length}`,
-            );
-            pathLayers.push(polyline);
-        });
+        Object.values(departurePaths).forEach((points) =>
+            drawPath(points, "#fb923c"),
+        );
 
         // Fit map bounds to paths if any exist
         if (pathLayers.length > 0) {
-            const group = new L.featureGroup(pathLayers);
-            map.fitBounds(group.getBounds().pad(0.1));
+            try {
+                const group = new L.featureGroup(pathLayers);
+                const bounds = group.getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds.pad(0.1));
+                    console.log(`FlightMap: Displaying ${pathLayers.length} path segments`);
+                } else {
+                    // Fallback if bounds are invalid
+                    if (map && mapContainer && mapContainer.offsetParent !== null) {
+                        map.setView([LSGL_LAT, LSGL_LON], 11);
+                    }
+                }
+            } catch (e) {
+                console.error("FlightMap: Error fitting bounds:", e);
+                // Only set view if map is ready
+                if (map && mapContainer && mapContainer.offsetParent !== null) {
+                    try {
+                        map.setView([LSGL_LAT, LSGL_LON], 11);
+                    } catch (viewError) {
+                        console.error("FlightMap: Error setting view:", viewError);
+                    }
+                }
+            }
         } else {
-            // Center on airport if no paths
-            map.setView([LSGL_LAT, LSGL_LON], 11);
+            // Center on airport if no paths - only if map is ready
+            if (map && mapContainer && mapContainer.offsetParent !== null) {
+                try {
+                    map.setView([LSGL_LAT, LSGL_LON], 11);
+                    console.log("FlightMap: No paths to display, centering on airport");
+                } catch (e) {
+                    console.error("FlightMap: Error setting view:", e);
+                }
+            }
         }
     }
 
@@ -170,16 +250,42 @@
 
         // Sort each group by time
         Object.keys(grouped).forEach((id) => {
-            grouped[id].sort(
-                (a, b) => (a.requested_time || 0) - (b.requested_time || 0),
-            );
+            grouped[id].sort((a, b) => {
+                const timeA = a.requested_time instanceof Date ? a.requested_time.getTime() : (a.requested_time || 0);
+                const timeB = b.requested_time instanceof Date ? b.requested_time.getTime() : (b.requested_time || 0);
+                return timeA - timeB;
+            });
         });
 
         return grouped;
     }
 
     onMount(() => {
-        initMap();
+        // Wait for map container to be in DOM before initializing
+        const init = () => {
+            if (mapContainer && !map) {
+                initMap();
+                // Update paths after map is fully initialized
+                setTimeout(() => {
+                    if (map && mapContainer) {
+                        // Use invalidateSize to ensure map is ready
+                        try {
+                            map.invalidateSize();
+                            updateFlightPaths();
+                        } catch (e) {
+                            console.error("FlightMap: Error during initialization:", e);
+                        }
+                    }
+                }, 300);
+            }
+        };
+        
+        // Try immediately, then with a small delay if needed
+        if (mapContainer) {
+            init();
+        } else {
+            setTimeout(init, 100);
+        }
     });
 
     onDestroy(() => {
@@ -187,25 +293,12 @@
             map.remove();
         }
     });
+
 </script>
 
 <div class="map-container">
     <div class="map-header">
         <h2>Trajectoires des vols</h2>
-        <div class="controls">
-            <label>
-                Journée:
-                <select bind:value={selectedDay}>
-                    <option value={0}>Aujourd'hui</option>
-                    <option value={1}>Hier</option>
-                    <option value={2}>Il y a 2 jours</option>
-                    <option value={3}>Il y a 3 jours</option>
-                    <option value={4}>Il y a 4 jours</option>
-                    <option value={5}>Il y a 5 jours</option>
-                    <option value={6}>Il y a 6 jours</option>
-                </select>
-            </label>
-        </div>
     </div>
     <div class="legend">
         <span class="legend-item"
@@ -214,6 +307,10 @@
         <span class="legend-item"
             ><span class="color-box departure"></span> Départs</span
         >
+        <span class="legend-item opacity-info">
+            <span class="opacity-box"></span>
+            <span>Lignes fines = Haute altitude</span>
+        </span>
     </div>
     <div bind:this={mapContainer} class="map"></div>
 </div>
@@ -229,12 +326,7 @@
     }
 
     .map-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
         margin-bottom: 16px;
-        flex-wrap: wrap;
-        gap: 16px;
     }
 
     h2 {
@@ -244,39 +336,12 @@
         color: #fff;
     }
 
-    .controls {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-    }
-
-    label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 14px;
-    }
-
-    select {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 14px;
-        cursor: pointer;
-    }
-
-    select:hover {
-        background: rgba(255, 255, 255, 0.15);
-    }
-
     .legend {
         display: flex;
         gap: 20px;
         margin-bottom: 12px;
         font-size: 14px;
+        flex-wrap: wrap;
     }
 
     .legend-item {
@@ -298,6 +363,13 @@
 
     .color-box.departure {
         background: #f97316;
+    }
+
+    .opacity-box {
+        width: 30px;
+        height: 1px;
+        background: white;
+        opacity: 0.5;
     }
 
     .map {
