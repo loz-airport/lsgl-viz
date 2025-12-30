@@ -594,17 +594,22 @@
     function startAnimation() {
         if (isAnimating) return;
 
+        // Correctly refer to animatedFlights state
+        const flightsToAnimate = $state.snapshot(animatedFlights);
+
         // If we have flights to animate
-        if (animatedFlights.length === 0) {
+        if (!flightsToAnimate || flightsToAnimate.length === 0) {
             console.warn("No flights to animate");
-            const msg =
-                "Aucun vol à animer pour la période sélectionnée (ou données non chargées).";
-            alert(msg);
-            console.log(msg);
+            // Add visual feedback
+            alert("Aucun vol à animer pour la période sélectionnée.");
             return;
         }
 
-        console.log("Starting animation...");
+        console.log(
+            "Starting animation with",
+            flightsToAnimate.length,
+            "flights",
+        );
         isAnimating = true;
         currentFlightIndex = 0;
 
@@ -780,10 +785,7 @@
             <label class="date-selector-label">
                 Période:
                 <select
-                    value={selectedDateRange}
-                    onchange={(e) => {
-                        selectedDateRange = e.currentTarget.value;
-                    }}
+                    bind:value={selectedDateRange}
                     class="date-selector"
                     style="cursor: pointer;"
                 >

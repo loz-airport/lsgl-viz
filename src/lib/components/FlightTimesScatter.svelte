@@ -47,10 +47,22 @@
     // Custom downward triangle symbol
     const downTriangle = {
         draw(context, size) {
-            const y = Math.sqrt(size) * 0.8;
-            context.moveTo(0, y);
-            context.lineTo(y, -y);
-            context.lineTo(-y, -y);
+            // User provided path for d3: M0,-50 L50,50 L-50,50 Z
+            // We need to scale this to the 'size' (area) provided by Plot
+            // standard size is usually in px^2. sqrt(size) is roughly the side/diameter.
+            const s = Math.sqrt(size);
+            // Triangle down: top-left (-,-), top-right (+,-), bottom (0, +) ?
+            // The user's example "M0,-50 L50,50 L-50,50 Z" looks like:
+            // 0,-50 (top center?). Wait. SVG coord system: 0,0 is top-left usually?
+            // Actually in Plot symbols, 0,0 is center.
+            // Downward pointing:
+            const h = s * 0.866; // height of equilateral triangle side s
+            const r = h / 2; // roughly radius
+
+            // Let's just use a simple inverted triangle logic
+            context.moveTo(0, s / 1.5); // Bottom tip
+            context.lineTo(s / 1.5, -s / 2); // Top right
+            context.lineTo(-s / 1.5, -s / 2); // Top left
             context.closePath();
         },
     };
@@ -168,7 +180,7 @@
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: [downTriangle, "circle"], // Custom down triangle for arrivals
+                    range: [downTriangle, "triangle"], // Use standard triangle for departures
                 },
                 marks: [
                     // Curves for round trips
@@ -192,8 +204,8 @@
                         opacity: 0.8,
                         stroke: "white",
                         strokeWidth: 0.5,
-                        // Use built-in pointer interaction to find data
-                        tip: true,
+                        // Disable built-in tip to avoid empty white box conflicts with sidebar
+                        tip: false,
                         title: (d) => {
                             const dateStr = new Intl.DateTimeFormat("fr-CH", {
                                 day: "numeric",

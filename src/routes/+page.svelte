@@ -69,7 +69,7 @@
         {:else}
             <div class="intro-text">
                 <h2>
-                    Lausanne Airport Flight Tracker : Cap sur la transparence
+                    Lausanne Airport Flight Tracker: Cap sur la transparence
                 </h2>
                 <p>
                     Avec plus d'une dizaine de mouvements quotidiens, l'activité
@@ -153,7 +153,7 @@
     }
 
     .banner {
-        height: 100px;
+        height: 200px;
         width: auto;
         max-width: 100%;
         object-fit: contain;

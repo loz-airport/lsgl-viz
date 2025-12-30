@@ -12,9 +12,10 @@
 	let prevDataLength = $state(0);
 
 	$effect(() => {
-		if (container && data.length > 0 && data.length !== prevDataLength) {
-			prevDataLength = data.length;
-			// Debounce chart rendering to avoid excessive re-renders
+		if (container && data.length > 0) {
+			// Re-render whenever data changes, regardless of length
+			// This ensures 30-day view updates even if data count happens to be similar
+			// and ensures state changes (period) trigger re-renders if they affect data
 			clearTimeout(container._renderTimeout);
 			container._renderTimeout = setTimeout(() => {
 				renderChart();
@@ -154,8 +155,11 @@
 						Plot.pointerX({
 							x: "date",
 							y: "arrivals", // Anchor to arrivals or just use x? pointerX mostly needs x.
-							// Adding a dummy channel or relying on X.
 							title: (d) => {
+								// Ensure date is valid
+								if (!d.date || isNaN(d.date.getTime()))
+									return null;
+
 								const dateStr = new Intl.DateTimeFormat(
 									"fr-CH",
 									{
