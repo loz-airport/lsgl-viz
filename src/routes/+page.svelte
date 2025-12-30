@@ -4,6 +4,7 @@
     import DailyFlightChart from "$lib/components/DailyFlightChart.svelte";
     import FlightTimesScatter from "$lib/components/FlightTimesScatter.svelte";
     import FlightMap from "$lib/components/FlightMap.svelte";
+    import bannerImage from "$lib/assets/banner_LAT.png";
 
     onMount(() => {
         flightStore.loadData();
@@ -11,7 +12,7 @@
 </script>
 
 <svelte:head>
-    <title>LSGL - Lausanne-Blécherette Flight Tracker</title>
+    <title>Lausanne-Blécherette Airport Flight Tracker</title>
     <meta
         name="description"
         content="Visualisation interactive des vols à l'aéroport de Lausanne-Blécherette (LSGL)"
@@ -27,15 +28,11 @@
 <div class="app">
     <header>
         <div class="header-content">
-            <div class="logo">
-                <span class="icon">✈️</span>
-                <div>
-                    <h1>LSGL Flight Tracker</h1>
-                    <p class="subtitle">Lausanne-Blécherette Airport</p>
+            <div class="logo-section">
+                <img src={bannerImage} alt="Lausanne-Blécherette Airport" class="banner" />
+                <div class="logo-text">
+                    <h1>Lausanne-Blécherette Airport Flight Tracker</h1>
                 </div>
-            </div>
-            <div class="info">
-                <span class="badge">Visualisation des vols</span>
             </div>
         </div>
     </header>
@@ -51,6 +48,9 @@
                 <p>❌ Erreur lors du chargement: {flightStore.loadError}</p>
             </div>
         {:else}
+            <div class="intro-text">
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+            </div>
             <div class="charts">
                 <DailyFlightChart data={flightStore.dailyFlightCounts} />
                 <FlightTimesScatter data={flightStore.filteredFlights} />
@@ -96,48 +96,33 @@
     .header-content {
         max-width: 1400px;
         margin: 0 auto;
+    }
+
+    .logo-section {
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        gap: 24px;
         flex-wrap: wrap;
-        gap: 16px;
     }
 
-    .logo {
-        display: flex;
-        align-items: center;
-        gap: 16px;
+    .banner {
+        height: 80px;
+        width: auto;
+        object-fit: contain;
     }
 
-    .icon {
-        font-size: 48px;
-        line-height: 1;
+    .logo-text {
+        flex: 1;
     }
 
     h1 {
         margin: 0;
-        font-size: 28px;
+        font-size: 32px;
         font-weight: 700;
         background: linear-gradient(135deg, #60a5fa, #f97316);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-    }
-
-    .subtitle {
-        margin: 4px 0 0 0;
-        font-size: 14px;
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .badge {
-        background: rgba(59, 130, 246, 0.2);
-        color: #60a5fa;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 500;
-        border: 1px solid rgba(59, 130, 246, 0.3);
     }
 
     main {
@@ -183,6 +168,23 @@
         color: #f87171;
     }
 
+    .intro-text {
+        max-width: 1400px;
+        margin: 0 auto 32px auto;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .intro-text p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
     .charts {
         display: flex;
         flex-direction: column;
@@ -223,12 +225,20 @@
             padding: 20px;
         }
 
-        .icon {
-            font-size: 36px;
+        .banner {
+            height: 60px;
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 24px;
+        }
+
+        .intro-text {
+            padding: 16px;
+        }
+
+        .intro-text p {
+            font-size: 14px;
         }
     }
 </style>

@@ -12,34 +12,62 @@
     } = $props();
 
     let selectedDateRange = $state("7");
+    let mapDateRangeDays = $state(7);
+    let mapDateRangeStart = $state(null);
+    let mapDateRangeEnd = $state(null);
+
+    // Helper to format date range
+    function formatDateRange(startDate, endDate) {
+        const start = new Intl.DateTimeFormat("fr-CH", {
+            day: "numeric",
+            month: "short",
+        }).format(startDate);
+        const end = new Intl.DateTimeFormat("fr-CH", {
+            day: "numeric",
+            month: "short",
+        }).format(endDate);
+        return `${start} - ${end}`;
+    }
 
     // Generate date range options
-    const dateRangeOptions = [
-        { value: "3", label: "3 derniers jours" },
-        { value: "7", label: "7 derniers jours" },
-    ];
+    const dateRangeOptions = [];
+    
+    // 3 derniers jours
+    const today = new Date();
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
+    dateRangeOptions.push({
+        value: "3",
+        label: `3 derniers jours (${formatDateRange(threeDaysAgo, today)})`,
+        days: 3,
+    });
+    
+    // 7 derniers jours
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    dateRangeOptions.push({
+        value: "7",
+        label: `7 derniers jours (${formatDateRange(sevenDaysAgo, today)})`,
+        days: 7,
+    });
 
     // Add 7-day ranges up to 30 days (non-overlapping)
-    // Week 1: days 7-13 ago, Week 2: days 14-20 ago, Week 3: days 21-27 ago, Week 4: days 28-30 ago
     for (let week = 1; week <= 4; week++) {
-        const daysAgoStart = week * 7; // Newest day in the range (e.g., 7 days ago for week 1)
-        const daysAgoEnd = Math.min(daysAgoStart + 6, 30); // Oldest day in the range (e.g., 13 days ago for week 1)
+        const daysAgoStart = week * 7;
+        const daysAgoEnd = Math.min(daysAgoStart + 6, 30);
         
-        // startDate is the oldest date (furthest in the past)
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - daysAgoEnd);
         startDate.setHours(0, 0, 0, 0);
         
-        // endDate is the newest date (closest to today)
         const endDate = new Date();
         endDate.setDate(endDate.getDate() - daysAgoStart);
         endDate.setHours(23, 59, 59, 999);
         
-        // Only add if the range is valid (at least 1 day)
         if (daysAgoEnd >= daysAgoStart) {
             dateRangeOptions.push({
                 value: `week-${week}`,
-                label: `7 derniers jours (semaine ${week})`,
+                label: `7 derniers jours (${formatDateRange(startDate, endDate)})`,
                 startDate,
                 endDate
             });
@@ -52,11 +80,14 @@
 
         if (option.startDate && option.endDate) {
             // Date range (week)
-            flightStore.setDateRange(null, option.startDate, option.endDate);
+            mapDateRangeDays = null;
+            mapDateRangeStart = option.startDate;
+            mapDateRangeEnd = option.endDate;
         } else {
             // Number of days
-            const days = parseInt(option.value);
-            flightStore.setDateRange(days, null, null);
+            mapDateRangeDays = option.days || 7;
+            mapDateRangeStart = null;
+            mapDateRangeEnd = null;
         }
     }
 
@@ -76,8 +107,8 @@
     const LSGL_LON = 6.617;
 
     $effect(() => {
-        // React to changes in state vectors and date range from store
-        if (map && (arrivalStateVectors.length > 0 || departureStateVectors.length > 0 || flightStore.dateRangeDays !== undefined || flightStore.dateRangeStart !== null || flightStore.dateRangeEnd !== null)) {
+        // React to changes in state vectors and local date range (not store)
+        if (map && (arrivalStateVectors.length > 0 || departureStateVectors.length > 0 || mapDateRangeDays !== undefined || mapDateRangeStart !== null || mapDateRangeEnd !== null)) {
             updateFlightPaths();
         }
     });
@@ -139,20 +170,20 @@
         pathLayers.forEach((layer) => map.removeLayer(layer));
         pathLayers = [];
 
-        // Calculate date range from store
+        // Calculate date range from local state (not store)
         let startDate, endDate;
-        if (flightStore.dateRangeStart && flightStore.dateRangeEnd) {
+        if (mapDateRangeStart && mapDateRangeEnd) {
             // Use provided date range
-            startDate = new Date(flightStore.dateRangeStart);
+            startDate = new Date(mapDateRangeStart);
             startDate.setHours(0, 0, 0, 0);
-            endDate = new Date(flightStore.dateRangeEnd);
+            endDate = new Date(mapDateRangeEnd);
             endDate.setHours(23, 59, 59, 999);
         } else {
             // Use number of days
             endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
             startDate = new Date();
-            startDate.setDate(startDate.getDate() - flightStore.dateRangeDays);
+            startDate.setDate(startDate.getDate() - (mapDateRangeDays || 7));
             startDate.setHours(0, 0, 0, 0);
         }
 
@@ -230,7 +261,7 @@
             
             // Flight type and callsign
             html += `<div style="font-weight: bold; margin-bottom: 8px; color: ${isArrival ? '#3b82f6' : '#f97316'};">`;
-            html += `${isArrival ? 'ARRIVÉE' : 'DÉPART'}`;
+            html += `${isArrival ? 'ATTERRISSAGE' : 'DÉCOLLAGE'}`;
             if (isValidValue(flight.call_sign)) {
                 html += ` - ${flight.call_sign}`;
             }
@@ -245,15 +276,40 @@
             const origin = flight.origin || flight.departure_airport || flight.estDepartureAirport;
             const destination = flight.destination || flight.arrival_airport || flight.estArrivalAirport;
             
+            // Dates
+            if (isArrival && flight.arrival_date) {
+                const dateStr = new Intl.DateTimeFormat("fr-CH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                }).format(flight.arrival_date);
+                html += `<div style="margin-bottom: 8px; font-size: 12px; color: #888;">Date: ${dateStr}</div>`;
+            } else if (!isArrival && flight.departure_date) {
+                const dateStr = new Intl.DateTimeFormat("fr-CH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                }).format(flight.departure_date);
+                html += `<div style="margin-bottom: 8px; font-size: 12px; color: #888;">Date: ${dateStr}</div>`;
+            }
+            
             if (isArrival) {
                 if (isValidValue(origin)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport de départ:</strong> ${origin}</div>`;
+                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport de décollage:</strong> ${origin}</div>`;
                 }
                 if (flight.departure_time) {
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Heure départ: ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
+                    const depDate = flight.departure_time ? new Intl.DateTimeFormat("fr-CH", {
+                        day: "numeric",
+                        month: "short",
+                    }).format(flight.departure_time) : '';
+                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Décollage: ${depDate} ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
                 }
                 if (flight.arrival_time) {
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Heure arrivée: ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
+                    const arrDate = flight.arrival_time ? new Intl.DateTimeFormat("fr-CH", {
+                        day: "numeric",
+                        month: "short",
+                    }).format(flight.arrival_time) : '';
+                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Atterrissage: ${arrDate} ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
                 }
                 if (flight.arrival_time && flight.departure_time) {
                     const duration = Math.round((flight.arrival_time - flight.departure_time) / 60000);
@@ -266,13 +322,21 @@
                 }
             } else {
                 if (isValidValue(destination)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport d'arrivée:</strong> ${destination}</div>`;
+                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport d'atterrissage:</strong> ${destination}</div>`;
                 }
                 if (flight.departure_time) {
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Heure départ: ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
+                    const depDate = flight.departure_time ? new Intl.DateTimeFormat("fr-CH", {
+                        day: "numeric",
+                        month: "short",
+                    }).format(flight.departure_time) : '';
+                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Décollage: ${depDate} ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
                 }
                 if (flight.arrival_time) {
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Heure arrivée: ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
+                    const arrDate = flight.arrival_time ? new Intl.DateTimeFormat("fr-CH", {
+                        day: "numeric",
+                        month: "short",
+                    }).format(flight.arrival_time) : '';
+                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Atterrissage: ${arrDate} ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
                 }
                 if (flight.arrival_time && flight.departure_time) {
                     const duration = Math.round((flight.arrival_time - flight.departure_time) / 60000);
@@ -311,8 +375,9 @@
             const flightInfo = getFlightInfo(flightId, isArrival);
             const popupContent = createPopupContent(flightInfo, isArrival);
             
-            // Create a feature group for this path to attach popup
+            // Create a feature group for this path to attach popup and handle hover
             const pathSegments = [];
+            let popup = null;
 
             // Draw as multiple segments to have varying width/opacity per altitude
             for (let i = 0; i < pathPoints.length - 1; i++) {
@@ -351,10 +416,53 @@
                 pathLayers.push(polyline);
             }
             
-            // Attach popup to the first segment (or create a group)
+            // Attach popup and hover effects to all segments
             if (pathSegments.length > 0 && flightInfo) {
                 const group = L.featureGroup(pathSegments);
-                group.bindPopup(popupContent, { maxWidth: 300 });
+                
+                // Store original styles
+                const originalStyles = pathSegments.map(s => ({
+                    weight: s.options.weight,
+                    opacity: s.options.opacity,
+                }));
+                
+                // Create popup
+                popup = L.popup({ maxWidth: 350, className: 'flight-popup' });
+                
+                // Add hover effects
+                pathSegments.forEach((segment, idx) => {
+                    segment.on('mouseover', function(e) {
+                        // Highlight all segments of this path
+                        pathSegments.forEach((s, i) => {
+                            s.setStyle({
+                                weight: originalStyles[i].weight * 2.5,
+                                opacity: Math.min(1, originalStyles[i].opacity * 2),
+                            });
+                        });
+                        
+                        // Show popup
+                        if (popup) {
+                            popup.setContent(popupContent);
+                            popup.setLatLng(e.latlng);
+                            popup.openOn(map);
+                        }
+                    });
+                    
+                    segment.on('mouseout', function() {
+                        // Restore original style
+                        pathSegments.forEach((s, i) => {
+                            s.setStyle({
+                                weight: originalStyles[i].weight,
+                                opacity: originalStyles[i].opacity,
+                            });
+                        });
+                        
+                        // Close popup
+                        if (popup) {
+                            map.closePopup(popup);
+                        }
+                    });
+                });
             }
         };
 
@@ -483,10 +591,10 @@
     </div>
     <div class="legend">
         <span class="legend-item"
-            ><span class="color-box arrival"></span> Arrivées</span
+            ><span class="color-box arrival"></span> Atterrissages</span
         >
         <span class="legend-item"
-            ><span class="color-box departure"></span> Départs</span
+            ><span class="color-box departure"></span> Décollages</span
         >
         <span class="legend-item opacity-info">
             <span class="opacity-box"></span>

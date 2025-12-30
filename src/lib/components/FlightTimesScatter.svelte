@@ -118,9 +118,13 @@
                         `${Math.floor(h).toString().padStart(2, "0")}:00`,
                     grid: true,
                 },
+                color: {
+                    domain: ["arrival", "departure"],
+                    range: ["#3b82f6", "#f97316"], // Bleu pour atterrissages, orange pour décollages
+                },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: ["triangle", "circle"],
+                    range: ["triangle-down", "circle"], // Triangle pointant vers le bas pour atterrissages
                 },
                 marks: [
                     // Curves for round trips
@@ -146,6 +150,40 @@
                         strokeWidth: 0.5,
                         // Use built-in pointer interaction to find data
                         tip: true,
+                        title: (d) => {
+                            const dateStr = new Intl.DateTimeFormat("fr-CH", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                            }).format(d.date);
+                            let info = `${dateStr}\n${d.flight_type === "arrival" ? "Atterrissage" : "Décollage"}: ${d.formattedTime}`;
+                            
+                            // Add flight duration if available
+                            if (d.arrival_time && d.departure_time) {
+                                const duration = Math.round((d.arrival_time - d.departure_time) / 60000);
+                                if (duration > 0) {
+                                    const hours = Math.floor(duration / 60);
+                                    const minutes = duration % 60;
+                                    const durationStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                                    info += `\nTemps de vol: ${durationStr}`;
+                                }
+                            }
+                            
+                            // Add airport info
+                            if (d.flight_type === "arrival") {
+                                const origin = d.origin || d.departure_airport || d.estDepartureAirport;
+                                if (origin) {
+                                    info += `\nAéroport de décollage: ${origin}`;
+                                }
+                            } else {
+                                const destination = d.destination || d.arrival_airport || d.estArrivalAirport;
+                                if (destination) {
+                                    info += `\nAéroport d'atterrissage: ${destination}`;
+                                }
+                            }
+                            
+                            return info;
+                        },
                     }),
                 ],
             });
@@ -193,7 +231,7 @@
         <div>
             <h2>Horaires des vols</h2>
             <p class="subtitle">
-                ▲ Départs · ● Arrivées · Lignes courbes = Escales
+                ▲ Décollages · ▼ Atterrissages · Lignes courbes = Escales
             </p>
         </div>
         <div class="toggle">
@@ -224,8 +262,8 @@
                     class:arrival={hoveredFlight.flight_type === "arrival"}
                 >
                     {hoveredFlight.flight_type === "arrival"
-                        ? "ARRIVÉE"
-                        : "DÉPART"}
+                        ? "ATTERRISSAGE"
+                        : "DÉCOLLAGE"}
                 </span>
                 <span class="time">{hoveredFlight.formattedTime}</span>
             </div>
@@ -301,6 +339,18 @@
         display: grid;
         grid-template-columns: 1fr 280px;
         gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+        .chart-container {
+            grid-template-columns: 1fr;
+        }
+        .flight-detail-panel,
+        .panel-placeholder {
+            min-height: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
     }
 
     .header {

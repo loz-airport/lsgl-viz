@@ -32,8 +32,8 @@
 			if (period === 7) {
 				// Transform data for grouped bar chart
 				chartData = rawData.flatMap((d) => [
-					{ date: d.date, type: "Arrivées", count: d.arrivals },
-					{ date: d.date, type: "Départs", count: d.departures },
+					{ date: d.date, type: "Atterrissages", count: d.arrivals },
+					{ date: d.date, type: "Décollages", count: d.departures },
 				]);
 
 				marks = [
@@ -49,14 +49,49 @@
 								month: "long",
 								year: "numeric",
 							}).format(d.date);
+							// Find the full data for this date
+							const dateData = rawData.find(r => r.date.getTime() === d.date.getTime());
+							if (dateData) {
+								return `${dateStr}\nAtterrissages: ${dateData.arrivals} vol${dateData.arrivals > 1 ? "s" : ""}\nDécollages: ${dateData.departures} vol${dateData.departures > 1 ? "s" : ""}`;
+							}
 							return `${dateStr}\n${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`;
 						},
 					}),
 					Plot.ruleY([0]),
 				];
 			} else {
+				// Generate weekend background rectangles
+				const weekendRects = [];
+				if (rawData.length > 0) {
+					const minDate = new Date(Math.min(...rawData.map(d => d.date.getTime())));
+					const maxDate = new Date(Math.max(...rawData.map(d => d.date.getTime())));
+					const maxY = Math.max(...rawData.map(d => Math.max(d.arrivals, d.departures))) * 1.1;
+					
+					for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+						const dayOfWeek = d.getDay();
+						if (dayOfWeek === 0 || dayOfWeek === 6) {
+							const nextDate = new Date(d);
+							nextDate.setDate(nextDate.getDate() + 1);
+							weekendRects.push({
+								x1: new Date(d),
+								x2: nextDate,
+								y1: 0,
+								y2: maxY,
+							});
+						}
+					}
+				}
 				// Line chart for 30 days
 				marks = [
+					// Weekend background
+					...(weekendRects.length > 0 ? [Plot.rectX(weekendRects, {
+						x1: "x1",
+						x2: "x2",
+						y1: "y1",
+						y2: "y2",
+						fill: "rgba(128, 128, 128, 0.15)",
+						stroke: "none",
+					})] : []),
 					Plot.lineY(rawData, {
 						x: "date",
 						y: "arrivals",
@@ -70,7 +105,7 @@
 								month: "long",
 								year: "numeric",
 							}).format(d.date);
-							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
 						},
 					}),
 					Plot.lineY(rawData, {
@@ -86,7 +121,7 @@
 								month: "long",
 								year: "numeric",
 							}).format(d.date);
-							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
 						},
 					}),
 					Plot.dot(rawData, {
@@ -101,7 +136,7 @@
 								month: "long",
 								year: "numeric",
 							}).format(d.date);
-							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
 						},
 					}),
 					Plot.dot(rawData, {
@@ -116,7 +151,7 @@
 								month: "long",
 								year: "numeric",
 							}).format(d.date);
-							return `${dateStr}\nArrivées: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDéparts: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
+							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
 						},
 					}),
 					Plot.ruleY([0]),
@@ -171,7 +206,7 @@
 					nice: true,
 				},
 				color: {
-					domain: ["Arrivées", "Départs"],
+					domain: ["Atterrissages", "Décollages"],
 					range: ["#3b82f6", "#f97316"],
 					legend: true,
 				},
