@@ -1,6 +1,6 @@
 <script>
     import * as Plot from "@observablehq/plot";
-    import { onMount } from "svelte";
+    import { onMount, onDestroy } from "svelte";
     import { flightStore } from "$lib/stores/flightData.svelte.js";
 
     let { data = [] } = $props();
@@ -11,14 +11,47 @@
     let hoveredFlight = $state(null);
     // tooltipPos is no longer needed as the tooltip is now a fixed panel
 
+    // Track previous data length to avoid unnecessary re-renders
+    let prevDataLength = $state(0);
+
     // Helper function to check if a value is valid (not NA, null, undefined, or empty)
     function isValidValue(value) {
-        return value && value !== 'NA' && value !== 'null' && String(value).trim() !== '';
+        return (
+            value &&
+            value !== "NA" &&
+            value !== "null" &&
+            String(value).trim() !== ""
+        );
+    }
+
+    // Common airports mapping
+    const COMMON_AIRPORTS = {
+        LSGG: "Genève, Suisse",
+        LSZH: "Zurich, Suisse",
+        LFSB: "Bâle-Mulhouse, Suisse/France",
+        LSGK: "Saanen, Suisse",
+        LSGS: "Sion, Suisse",
+        LSGC: "Les Eplatures, Suisse",
+        LSZB: "Berne, Suisse",
+        LSZA: "Lugano, Suisse",
+        LFLB: "Chambéry, France",
+        LFLL: "Lyon Saint-Exupéry, France",
+        LFLP: "Annecy, France",
+    };
+
+    function getAirportName(code) {
+        if (!code) return null;
+        return COMMON_AIRPORTS[code] || null; // Return null if not found to fall back to code
     }
 
     $effect(() => {
-        if (container && data.length > 0) {
-            renderChart();
+        if (container && data.length > 0 && data.length !== prevDataLength) {
+            prevDataLength = data.length;
+            // Debounce chart rendering to avoid excessive re-renders
+            clearTimeout(container._renderTimeout);
+            container._renderTimeout = setTimeout(() => {
+                renderChart();
+            }, 150);
         }
     });
 
@@ -124,7 +157,7 @@
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: ["triangle-down", "circle"], // Triangle pointant vers le bas pour atterrissages
+                    range: ["triangle", "circle"], // Changed to valid symbol
                 },
                 marks: [
                     // Curves for round trips
@@ -157,31 +190,38 @@
                                 year: "numeric",
                             }).format(d.date);
                             let info = `${dateStr}\n${d.flight_type === "arrival" ? "Atterrissage" : "Décollage"}: ${d.formattedTime}`;
-                            
+
                             // Add flight duration if available
                             if (d.arrival_time && d.departure_time) {
-                                const duration = Math.round((d.arrival_time - d.departure_time) / 60000);
+                                const duration = Math.round(
+                                    (d.arrival_time - d.departure_time) / 60000,
+                                );
                                 if (duration > 0) {
                                     const hours = Math.floor(duration / 60);
                                     const minutes = duration % 60;
-                                    const durationStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                                    const durationStr =
+                                        hours > 0
+                                            ? `${hours}h ${minutes}min`
+                                            : `${minutes}min`;
                                     info += `\nTemps de vol: ${durationStr}`;
                                 }
                             }
-                            
+
                             // Add airport info
-                            if (d.flight_type === "arrival") {
-                                const origin = d.origin || d.departure_airport || d.estDepartureAirport;
-                                if (origin) {
-                                    info += `\nAéroport de décollage: ${origin}`;
-                                }
-                            } else {
-                                const destination = d.destination || d.arrival_airport || d.estArrivalAirport;
-                                if (destination) {
-                                    info += `\nAéroport d'atterrissage: ${destination}`;
-                                }
+                            const code =
+                                d.flight_type === "arrival"
+                                    ? d.origin ||
+                                      d.departure_airport ||
+                                      d.estDepartureAirport
+                                    : d.destination ||
+                                      d.arrival_airport ||
+                                      d.estArrivalAirport;
+
+                            if (code) {
+                                const name = getAirportName(code);
+                                info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${name ? `${name} (${code})` : code}`;
                             }
-                            
+
                             return info;
                         },
                     }),
@@ -190,18 +230,12 @@
 
             if (plot) {
                 // Add event listener to the SVG to show our custom tooltip
-                // We'll use the 'input' event if Observable Plot supports it,
-                // but standard way is to detect the 'plot.tip' or add a custom layer.
-                // To keep it simple and fix the previous error, I'll use a voronoi-less approach
-                // and just use the built-in tip for now OR add a proper mouse handler.
                 container.appendChild(plot);
 
                 // Hacky way to catch the hover data from Plot's tip
                 plot.addEventListener("input", () => {
                     if (plot.value) {
                         hoveredFlight = plot.value;
-                        // We'll need coordinates. Plot doesn't expose them easily here.
-                        // So I'll stick to standard Plot tip for now but find a way to include metadata.
                     } else {
                         hoveredFlight = null;
                     }
@@ -221,9 +255,12 @@
         }
     });
 
-    // We'll use a slightly different approach for the tooltip since Plot 0.6 tips are hard to hijack for images
-    // I will use the built-in title for the 4 text fields and maybe a separate "Selected Aircraft" panel if it's too hard to put image in tooltip
-    // Actually, I'll try to use a custom mark for the tooltip.
+    // Cleanup timeouts on destroy
+    onDestroy(() => {
+        if (container?._renderTimeout) {
+            clearTimeout(container._renderTimeout);
+        }
+    });
 </script>
 
 <div class="chart-container">
@@ -254,8 +291,8 @@
         <div bind:this={container} class="chart"></div>
     {/if}
 
-    {#if hoveredFlight}
-        <div class="flight-detail-panel">
+    <div class="flight-detail-panel" class:visible={!!hoveredFlight}>
+        {#if hoveredFlight}
             <div class="panel-header">
                 <span
                     class="type-badge"
@@ -279,18 +316,25 @@
                 <div class="metadata-info">
                     {#if isValidValue(hoveredFlight.metadata.model)}
                         <div class="model">
-                            <strong>Modèle:</strong> {hoveredFlight.metadata.model}
+                            <strong>Modèle:</strong>
+                            {hoveredFlight.metadata.model}
                         </div>
                     {:else}
-                        <div class="model" style="color: rgba(255, 255, 255, 0.5);">
+                        <div
+                            class="model"
+                            style="color: rgba(255, 255, 255, 0.5);"
+                        >
                             <strong>Modèle:</strong> Inconnu
                         </div>
                     {/if}
                     <div class="registration">
                         {#if isValidValue(hoveredFlight.metadata.origin_country)}
-                            <strong>Pays d'immatriculation:</strong> {hoveredFlight.metadata.origin_country}
+                            <strong>Pays d'immatriculation:</strong>
+                            {hoveredFlight.metadata.origin_country}
                         {:else}
-                            <span style="color: rgba(255, 255, 255, 0.5);">Pays d'immatriculation: Inconnu</span>
+                            <span style="color: rgba(255, 255, 255, 0.5);"
+                                >Pays d'immatriculation: Inconnu</span
+                            >
                         {/if}
                     </div>
                 </div>
@@ -299,11 +343,12 @@
                         <img
                             src={hoveredFlight.metadata.photo_url}
                             alt="Aircraft"
-                            onerror={(e) => { 
-                                e.target.style.display = 'none';
+                            onerror={(e) => {
+                                e.target.style.display = "none";
                                 const container = e.target.parentElement;
                                 if (container) {
-                                    container.innerHTML = '<div class="no-photo"><span>Photo non disponible</span></div>';
+                                    container.innerHTML =
+                                        '<div class="no-photo"><span>Photo non disponible</span></div>';
                                 }
                             }}
                         />
@@ -320,12 +365,12 @@
                     </div>
                 </div>
             {/if}
-        </div>
-    {:else}
-        <div class="panel-placeholder">
-            <p>Survolez un vol pour voir les détails de l'appareil</p>
-        </div>
-    {/if}
+        {:else}
+            <div class="panel-placeholder">
+                <p>Survolez un vol pour voir les détails de l'appareil</p>
+            </div>
+        {/if}
+    </div>
 </div>
 
 <style>
@@ -339,17 +384,52 @@
         display: grid;
         grid-template-columns: 1fr 280px;
         gap: 24px;
+        position: relative;
     }
 
     @media (max-width: 900px) {
         .chart-container {
             grid-template-columns: 1fr;
+            padding-bottom: 120px; /* Space for the bottom sheet */
         }
-        .flight-detail-panel,
-        .panel-placeholder {
-            min-height: auto;
-            max-height: 400px;
+
+        .flight-detail-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.95) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px 16px 0 0 !important;
+            padding: 16px !important;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            max-height: 40vh !important;
+            min-height: auto !important;
             overflow-y: auto;
+        }
+
+        .flight-detail-panel.visible {
+            transform: translateY(0);
+        }
+
+        .panel-placeholder {
+            display: none !important;
+        }
+
+        /* Adjust image size in bottom sheet */
+        .aircraft-img {
+            max-height: 120px;
+            overflow: hidden;
+            border-radius: 6px !important;
+        }
+
+        .aircraft-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
     }
 
@@ -517,15 +597,5 @@
         width: 100%;
         height: auto;
         display: block;
-    }
-
-    @media (max-width: 900px) {
-        .chart-container {
-            grid-template-columns: 1fr;
-        }
-        .flight-detail-panel,
-        .panel-placeholder {
-            min-height: auto;
-        }
     }
 </style>

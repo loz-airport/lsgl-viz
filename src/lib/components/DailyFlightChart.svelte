@@ -1,6 +1,6 @@
 <script>
 	import * as Plot from "@observablehq/plot";
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import { flightStore } from "$lib/stores/flightData.svelte.js";
 
 	let { data = [] } = $props();
@@ -8,9 +8,17 @@
 	let container = $state();
 	let period = $state(7);
 
+	// Track previous data length to avoid unnecessary re-renders
+	let prevDataLength = $state(0);
+
 	$effect(() => {
-		if (container && data.length > 0) {
-			renderChart();
+		if (container && data.length > 0 && data.length !== prevDataLength) {
+			prevDataLength = data.length;
+			// Debounce chart rendering to avoid excessive re-renders
+			clearTimeout(container._renderTimeout);
+			container._renderTimeout = setTimeout(() => {
+				renderChart();
+			}, 150);
 		}
 	});
 
@@ -42,32 +50,52 @@
 						y: "count",
 						fill: "type",
 						fx: "date",
-						tip: true,
-						title: (d) => {
-							const dateStr = new Intl.DateTimeFormat("fr-CH", {
-								day: "numeric",
-								month: "long",
-								year: "numeric",
-							}).format(d.date);
-							// Find the full data for this date
-							const dateData = rawData.find(r => r.date.getTime() === d.date.getTime());
-							if (dateData) {
-								return `${dateStr}\nAtterrissages: ${dateData.arrivals} vol${dateData.arrivals > 1 ? "s" : ""}\nDécollages: ${dateData.departures} vol${dateData.departures > 1 ? "s" : ""}`;
-							}
-							return `${dateStr}\n${d.type}: ${d.count} vol${d.count > 1 ? "s" : ""}`;
-						},
 					}),
+					Plot.tip(
+						chartData,
+						Plot.pointerX({
+							x: "type",
+							fx: "date",
+							y: "count",
+							title: (d) => {
+								const dateStr = new Intl.DateTimeFormat(
+									"fr-CH",
+									{
+										day: "numeric",
+										month: "long",
+										year: "numeric",
+									},
+								).format(d.date);
+								// Find the full data for this date
+								const dateData = rawData.find(
+									(r) =>
+										r.date.getTime() === d.date.getTime(),
+								);
+								if (dateData) {
+									return `${dateStr}\nAtterrissages: ${dateData.arrivals}\nDécollages: ${dateData.departures}`;
+								}
+								return `${dateStr}\n${d.type}: ${d.count}`;
+							},
+						}),
+					),
 					Plot.ruleY([0]),
 				];
 			} else {
 				// Generate weekend background rectangles
 				const weekendRects = [];
 				if (rawData.length > 0) {
-					const minDate = new Date(Math.min(...rawData.map(d => d.date.getTime())));
-					const maxDate = new Date(Math.max(...rawData.map(d => d.date.getTime())));
-					const maxY = Math.max(...rawData.map(d => Math.max(d.arrivals, d.departures))) * 1.1;
-					
-					for (let d = new Date(minDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
+					const minDate = new Date(
+						Math.min(...rawData.map((d) => d.date.getTime())),
+					);
+					const maxDate = new Date(
+						Math.max(...rawData.map((d) => d.date.getTime())),
+					);
+
+					for (
+						let d = new Date(minDate);
+						d <= maxDate;
+						d.setDate(d.getDate() + 1)
+					) {
 						const dayOfWeek = d.getDay();
 						if (dayOfWeek === 0 || dayOfWeek === 6) {
 							const nextDate = new Date(d);
@@ -75,38 +103,29 @@
 							weekendRects.push({
 								x1: new Date(d),
 								x2: nextDate,
-								y1: 0,
-								y2: maxY,
 							});
 						}
 					}
 				}
 				// Line chart for 30 days
 				marks = [
-					// Weekend background
-					...(weekendRects.length > 0 ? [Plot.rectX(weekendRects, {
-						x1: "x1",
-						x2: "x2",
-						y1: "y1",
-						y2: "y2",
-						fill: "rgba(128, 128, 128, 0.15)",
-						stroke: "none",
-					})] : []),
+					// Weekend background - full height rectangles (using null for y to span the full chart)
+					...(weekendRects.length > 0
+						? [
+								Plot.rectX(weekendRects, {
+									x1: "x1",
+									x2: "x2",
+									fill: "rgba(128, 128, 128, 0.15)",
+									stroke: "none",
+								}),
+							]
+						: []),
 					Plot.lineY(rawData, {
 						x: "date",
 						y: "arrivals",
 						stroke: "#3b82f6",
 						strokeWidth: 2,
 						curve: "monotone-x",
-						tip: true,
-						title: (d) => {
-							const dateStr = new Intl.DateTimeFormat("fr-CH", {
-								day: "numeric",
-								month: "long",
-								year: "numeric",
-							}).format(d.date);
-							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
-						},
 					}),
 					Plot.lineY(rawData, {
 						x: "date",
@@ -114,46 +133,37 @@
 						stroke: "#f97316",
 						strokeWidth: 2,
 						curve: "monotone-x",
-						tip: true,
-						title: (d) => {
-							const dateStr = new Intl.DateTimeFormat("fr-CH", {
-								day: "numeric",
-								month: "long",
-								year: "numeric",
-							}).format(d.date);
-							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
-						},
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "arrivals",
 						fill: "#3b82f6",
 						r: 3,
-						tip: true,
-						title: (d) => {
-							const dateStr = new Intl.DateTimeFormat("fr-CH", {
-								day: "numeric",
-								month: "long",
-								year: "numeric",
-							}).format(d.date);
-							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
-						},
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "departures",
 						fill: "#f97316",
 						r: 3,
-						tip: true,
-						title: (d) => {
-							const dateStr = new Intl.DateTimeFormat("fr-CH", {
-								day: "numeric",
-								month: "long",
-								year: "numeric",
-							}).format(d.date);
-							return `${dateStr}\nAtterrissages: ${d.arrivals} vol${d.arrivals > 1 ? "s" : ""}\nDécollages: ${d.departures} vol${d.departures > 1 ? "s" : ""}`;
-						},
 					}),
+					// Explicit tooltip mark for better control
+					Plot.tip(
+						rawData,
+						Plot.pointerX({
+							x: "date",
+							title: (d) => {
+								const dateStr = new Intl.DateTimeFormat(
+									"fr-CH",
+									{
+										day: "numeric",
+										month: "long",
+										year: "numeric",
+									},
+								).format(d.date);
+								return `${dateStr}\nAtterrissages: ${d.arrivals}\nDécollages: ${d.departures}`;
+							},
+						}),
+					),
 					Plot.ruleY([0]),
 				];
 			}
@@ -173,14 +183,14 @@
 					axis: "bottom",
 					tickFormat: (d) => {
 						const date = new Date(d);
-						if (isNaN(date.getTime())) return '';
+						if (isNaN(date.getTime())) return "";
 						try {
 							return new Intl.DateTimeFormat("fr-CH", {
 								month: "short",
 								day: "numeric",
 							}).format(date);
 						} catch (e) {
-							return '';
+							return "";
 						}
 					},
 				},
@@ -188,14 +198,14 @@
 					label: null,
 					tickFormat: (d) => {
 						const date = new Date(d);
-						if (isNaN(date.getTime())) return '';
+						if (isNaN(date.getTime())) return "";
 						try {
 							return new Intl.DateTimeFormat("fr-CH", {
 								month: "short",
 								day: "numeric",
 							}).format(date);
 						} catch (e) {
-							return '';
+							return "";
 						}
 					},
 					grid: period === 30,
@@ -222,6 +232,13 @@
 	onMount(() => {
 		if (data.length > 0) {
 			renderChart();
+		}
+	});
+
+	// Cleanup timeouts on destroy
+	onDestroy(() => {
+		if (container?._renderTimeout) {
+			clearTimeout(container._renderTimeout);
 		}
 	});
 </script>

@@ -6,15 +6,18 @@
 
     import { flightStore } from "$lib/stores/flightData.svelte.js";
 
-    let {
-        arrivalStateVectors = [],
-        departureStateVectors = [],
-    } = $props();
+    let { arrivalStateVectors = [], departureStateVectors = [] } = $props();
 
     let selectedDateRange = $state("7");
     let mapDateRangeDays = $state(7);
     let mapDateRangeStart = $state(null);
     let mapDateRangeEnd = $state(null);
+    let isAnimating = $state(false);
+    let animationInterval = $state(null);
+    let currentFlightIndex = $state(0);
+    let animatedFlights = $state([]);
+    let highlightedFlightLayer = $state(null);
+    let flightInfoPanel = $state(null);
 
     // Helper to format date range
     function formatDateRange(startDate, endDate) {
@@ -29,54 +32,64 @@
         return `${start} - ${end}`;
     }
 
-    // Generate date range options
-    const dateRangeOptions = [];
-    
-    // 3 derniers jours
-    const today = new Date();
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
-    dateRangeOptions.push({
-        value: "3",
-        label: `3 derniers jours (${formatDateRange(threeDaysAgo, today)})`,
-        days: 3,
-    });
-    
-    // 7 derniers jours
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-    dateRangeOptions.push({
-        value: "7",
-        label: `7 derniers jours (${formatDateRange(sevenDaysAgo, today)})`,
-        days: 7,
-    });
+    // Generate date range options - reactive
+    function getDateRangeOptions() {
+        const options = [];
+        const today = new Date();
 
-    // Add 7-day ranges up to 30 days (non-overlapping)
-    for (let week = 1; week <= 4; week++) {
-        const daysAgoStart = week * 7;
-        const daysAgoEnd = Math.min(daysAgoStart + 6, 30);
-        
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - daysAgoEnd);
-        startDate.setHours(0, 0, 0, 0);
-        
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() - daysAgoStart);
-        endDate.setHours(23, 59, 59, 999);
-        
-        if (daysAgoEnd >= daysAgoStart) {
-            dateRangeOptions.push({
-                value: `week-${week}`,
-                label: `7 derniers jours (${formatDateRange(startDate, endDate)})`,
-                startDate,
-                endDate
-            });
+        // 3 derniers jours
+        const threeDaysAgo = new Date(today);
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 2);
+        options.push({
+            value: "3",
+            label: `3 derniers jours (${formatDateRange(threeDaysAgo, today)})`,
+            days: 3,
+        });
+
+        // 7 derniers jours
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+        options.push({
+            value: "7",
+            label: `7 derniers jours (${formatDateRange(sevenDaysAgo, today)})`,
+            days: 7,
+        });
+
+        // Add 7-day ranges up to 30 days (non-overlapping)
+        for (let week = 1; week <= 4; week++) {
+            const daysAgoStart = week * 7;
+            const daysAgoEnd = Math.min(daysAgoStart + 6, 30);
+
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - daysAgoEnd);
+            startDate.setHours(0, 0, 0, 0);
+
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() - daysAgoStart);
+            endDate.setHours(23, 59, 59, 999);
+
+            if (daysAgoEnd >= daysAgoStart) {
+                options.push({
+                    value: `week-${week}`,
+                    label: `7 derniers jours (${formatDateRange(startDate, endDate)})`,
+                    startDate,
+                    endDate,
+                });
+            }
         }
+        return options;
     }
 
+    const dateRangeOptions = $derived(getDateRangeOptions());
+
     function handleDateRangeChange() {
-        const option = dateRangeOptions.find(opt => opt.value === selectedDateRange);
+        const option = dateRangeOptions.find(
+            (opt) => opt.value === selectedDateRange,
+        );
         if (!option) return;
+
+        // Stop animation when changing range
+        stopAnimation();
 
         if (option.startDate && option.endDate) {
             // Date range (week)
@@ -108,8 +121,19 @@
 
     $effect(() => {
         // React to changes in state vectors and local date range (not store)
-        if (map && (arrivalStateVectors.length > 0 || departureStateVectors.length > 0 || mapDateRangeDays !== undefined || mapDateRangeStart !== null || mapDateRangeEnd !== null)) {
-            updateFlightPaths();
+        // Debounce to avoid excessive re-renders
+        if (
+            map &&
+            (arrivalStateVectors.length > 0 ||
+                departureStateVectors.length > 0 ||
+                mapDateRangeDays !== undefined ||
+                mapDateRangeStart !== null ||
+                mapDateRangeEnd !== null)
+        ) {
+            clearTimeout(map._updateTimeout);
+            map._updateTimeout = setTimeout(() => {
+                updateFlightPaths();
+            }, 200);
         }
     });
 
@@ -162,7 +186,9 @@
         const arrivalsRaw = $state.snapshot(arrivalStateVectors) || [];
         const departuresRaw = $state.snapshot(departureStateVectors) || [];
 
-        console.log(`FlightMap: Updating paths with ${arrivalsRaw.length} arrivals and ${departuresRaw.length} departures`);
+        console.log(
+            `FlightMap: Updating paths with ${arrivalsRaw.length} arrivals and ${departuresRaw.length} departures`,
+        );
 
         // Don't return early - we still want to show the map even if there's no data
 
@@ -189,7 +215,11 @@
 
         // Filter state vectors by date range
         const filteredArrivals = arrivalsRaw.filter((sv) => {
-            if (!sv.arrival_date || !(sv.arrival_date instanceof Date) || isNaN(sv.arrival_date.getTime())) {
+            if (
+                !sv.arrival_date ||
+                !(sv.arrival_date instanceof Date) ||
+                isNaN(sv.arrival_date.getTime())
+            ) {
                 return false;
             }
             try {
@@ -208,7 +238,11 @@
         });
 
         const filteredDepartures = departuresRaw.filter((sv) => {
-            if (!sv.departure_date || !(sv.departure_date instanceof Date) || isNaN(sv.departure_date.getTime())) {
+            if (
+                !sv.departure_date ||
+                !(sv.departure_date instanceof Date) ||
+                isNaN(sv.departure_date.getTime())
+            ) {
                 return false;
             }
             try {
@@ -226,21 +260,67 @@
             }
         });
 
-        // Group by flight ID
+        // Group by flight ID and limit points per flight for performance
         const arrivalPaths = groupByFlightId(filteredArrivals);
         const departurePaths = groupByFlightId(filteredDepartures);
 
+        // Limit the number of points per flight path for performance
+        const maxPointsPerFlight = 20;
+        Object.keys(arrivalPaths).forEach((flightId) => {
+            if (arrivalPaths[flightId].length > maxPointsPerFlight) {
+                // Keep first and last points, and sample intermediate points
+                const points = arrivalPaths[flightId];
+                const sampled = [points[0]]; // First point
+                const step = Math.floor(
+                    (points.length - 2) / (maxPointsPerFlight - 2),
+                );
+                for (let i = 1; i < points.length - 1; i += step) {
+                    if (sampled.length < maxPointsPerFlight - 1) {
+                        sampled.push(points[i]);
+                    }
+                }
+                sampled.push(points[points.length - 1]); // Last point
+                arrivalPaths[flightId] = sampled;
+            }
+        });
+
+        Object.keys(departurePaths).forEach((flightId) => {
+            if (departurePaths[flightId].length > maxPointsPerFlight) {
+                const points = departurePaths[flightId];
+                const sampled = [points[0]];
+                const step = Math.floor(
+                    (points.length - 2) / (maxPointsPerFlight - 2),
+                );
+                for (let i = 1; i < points.length - 1; i += step) {
+                    if (sampled.length < maxPointsPerFlight - 1) {
+                        sampled.push(points[i]);
+                    }
+                }
+                sampled.push(points[points.length - 1]);
+                departurePaths[flightId] = sampled;
+            }
+        });
+
         // Helper to get flight info and metadata for a flight ID
         const getFlightInfo = (flightId, isArrival) => {
-            const flights = isArrival ? flightStore.arrivalsData : flightStore.departuresData;
-            const flight = flights.find(f => f.id === flightId || f.ICAO24 === flightId);
+            const flights = isArrival
+                ? flightStore.arrivalsData
+                : flightStore.departuresData;
+            const flight = flights.find(
+                (f) => f.id === flightId || f.ICAO24 === flightId,
+            );
             if (!flight) return null;
 
             // Find metadata - CSV uses ICAO24 (uppercase)
-            const flightIcao = flight.ICAO24 ? String(flight.ICAO24).toLowerCase() : null;
-            const metadata = flightStore.aircraftMetadata.find(m => {
+            const flightIcao = flight.ICAO24
+                ? String(flight.ICAO24).toLowerCase()
+                : null;
+            const metadata = flightStore.aircraftMetadata.find((m) => {
                 // Check both uppercase and lowercase versions
-                const metaIcao = (m.ICAO24 || m.icao24) ? String(m.ICAO24 || m.icao24).toLowerCase() : null;
+                const metaIcao =
+                    m.ICAO24 || m.icao24
+                        ? String(m.ICAO24 || m.icao24).toLowerCase()
+                        : null;
                 return metaIcao && flightIcao && metaIcao === flightIcao;
             });
 
@@ -249,106 +329,67 @@
 
         // Helper function to check if a value is valid (not NA, null, undefined, or empty)
         const isValidValue = (value) => {
-            return value && value !== 'NA' && value !== 'null' && String(value).trim() !== '';
+            return (
+                value &&
+                value !== "NA" &&
+                value !== "null" &&
+                String(value).trim() !== ""
+            );
         };
 
         // Function to create popup content
         const createPopupContent = (flightInfo, isArrival) => {
             if (!flightInfo) return "Informations non disponibles";
-            
+
             const { flight, metadata } = flightInfo;
             let html = `<div style="min-width: 200px;">`;
-            
+
             // Flight type and callsign
-            html += `<div style="font-weight: bold; margin-bottom: 8px; color: ${isArrival ? '#3b82f6' : '#f97316'};">`;
-            html += `${isArrival ? 'ATTERRISSAGE' : 'DÉCOLLAGE'}`;
+            html += `<div style="font-weight: bold; margin-bottom: 8px; color: ${isArrival ? "#3b82f6" : "#f97316"};">`;
+            html += `${isArrival ? "ATTERRISSAGE" : "DÉCOLLAGE"}`;
             if (isValidValue(flight.call_sign)) {
                 html += ` - ${flight.call_sign}`;
             }
             html += `</div>`;
-            
+
             // ICAO24
             if (isValidValue(flight.ICAO24)) {
                 html += `<div style="font-size: 12px; color: #888; margin-bottom: 8px;">ICAO24: ${flight.ICAO24}</div>`;
             }
-            
-            // Airports and times
-            const origin = flight.origin || flight.departure_airport || flight.estDepartureAirport;
-            const destination = flight.destination || flight.arrival_airport || flight.estArrivalAirport;
-            
-            // Dates
-            if (isArrival && flight.arrival_date) {
-                const dateStr = new Intl.DateTimeFormat("fr-CH", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                }).format(flight.arrival_date);
-                html += `<div style="margin-bottom: 8px; font-size: 12px; color: #888;">Date: ${dateStr}</div>`;
-            } else if (!isArrival && flight.departure_date) {
-                const dateStr = new Intl.DateTimeFormat("fr-CH", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                }).format(flight.departure_date);
-                html += `<div style="margin-bottom: 8px; font-size: 12px; color: #888;">Date: ${dateStr}</div>`;
-            }
-            
+
+            // Airports (No date as requested)
+            const origin =
+                flight.origin ||
+                flight.departure_airport ||
+                flight.estDepartureAirport;
+            const destination =
+                flight.destination ||
+                flight.arrival_airport ||
+                flight.estArrivalAirport;
+
             if (isArrival) {
                 if (isValidValue(origin)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport de décollage:</strong> ${origin}</div>`;
-                }
-                if (flight.departure_time) {
-                    const depDate = flight.departure_time ? new Intl.DateTimeFormat("fr-CH", {
-                        day: "numeric",
-                        month: "short",
-                    }).format(flight.departure_time) : '';
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Décollage: ${depDate} ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
-                }
-                if (flight.arrival_time) {
-                    const arrDate = flight.arrival_time ? new Intl.DateTimeFormat("fr-CH", {
-                        day: "numeric",
-                        month: "short",
-                    }).format(flight.arrival_time) : '';
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Atterrissage: ${arrDate} ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
-                }
-                if (flight.arrival_time && flight.departure_time) {
-                    const duration = Math.round((flight.arrival_time - flight.departure_time) / 60000);
-                    if (duration > 0) {
-                        const hours = Math.floor(duration / 60);
-                        const minutes = duration % 60;
-                        const durationStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
-                        html += `<div style="margin-bottom: 4px;"><strong>Temps de vol:</strong> ${durationStr}</div>`;
-                    }
+                    html += `<div style="margin-bottom: 4px;"><strong>Provenance:</strong> ${origin}</div>`;
                 }
             } else {
                 if (isValidValue(destination)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Aéroport d'atterrissage:</strong> ${destination}</div>`;
-                }
-                if (flight.departure_time) {
-                    const depDate = flight.departure_time ? new Intl.DateTimeFormat("fr-CH", {
-                        day: "numeric",
-                        month: "short",
-                    }).format(flight.departure_time) : '';
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Décollage: ${depDate} ${flight.departure_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
-                }
-                if (flight.arrival_time) {
-                    const arrDate = flight.arrival_time ? new Intl.DateTimeFormat("fr-CH", {
-                        day: "numeric",
-                        month: "short",
-                    }).format(flight.arrival_time) : '';
-                    html += `<div style="margin-bottom: 4px; font-size: 12px;">Atterrissage: ${arrDate} ${flight.arrival_time.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>`;
-                }
-                if (flight.arrival_time && flight.departure_time) {
-                    const duration = Math.round((flight.arrival_time - flight.departure_time) / 60000);
-                    if (duration > 0) {
-                        const hours = Math.floor(duration / 60);
-                        const minutes = duration % 60;
-                        const durationStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
-                        html += `<div style="margin-bottom: 4px;"><strong>Temps de vol:</strong> ${durationStr}</div>`;
-                    }
+                    html += `<div style="margin-bottom: 4px;"><strong>Destination:</strong> ${destination}</div>`;
                 }
             }
-            
+
+            if (flight.arrival_time && flight.departure_time) {
+                const duration = Math.round(
+                    (flight.arrival_time - flight.departure_time) / 60000,
+                );
+                if (duration > 0) {
+                    const hours = Math.floor(duration / 60);
+                    const minutes = duration % 60;
+                    const durationStr =
+                        hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                    html += `<div style="margin-bottom: 4px;"><strong>Temps de vol:</strong> ${durationStr}</div>`;
+                }
+            }
+
             // Metadata
             if (metadata) {
                 html += `<div style="border-top: 1px solid #333; margin-top: 8px; padding-top: 8px;">`;
@@ -356,14 +397,14 @@
                     html += `<div style="margin-bottom: 4px;"><strong>Modèle:</strong> ${metadata.model}</div>`;
                 }
                 if (isValidValue(metadata.origin_country)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Pays d'immatriculation:</strong> ${metadata.origin_country}</div>`;
+                    html += `<div style="margin-bottom: 4px;"><strong>Pays:</strong> ${metadata.origin_country}</div>`;
                 }
                 if (isValidValue(metadata.photo_url)) {
                     html += `<div style="margin-top: 8px;"><img src="${metadata.photo_url}" alt="Aircraft" style="max-width: 100%; border-radius: 4px;" onerror="this.style.display='none';" /></div>`;
                 }
                 html += `</div>`;
             }
-            
+
             html += `</div>`;
             return html;
         };
@@ -374,7 +415,7 @@
 
             const flightInfo = getFlightInfo(flightId, isArrival);
             const popupContent = createPopupContent(flightInfo, isArrival);
-            
+
             // Create a feature group for this path to attach popup and handle hover
             const pathSegments = [];
             let popup = null;
@@ -384,18 +425,12 @@
                 const p1 = pathPoints[i];
                 const p2 = pathPoints[i + 1];
 
-                // Use log altitude (clamped) to determine width/opacity
-                // Standard cruise at 30k ft -> 10k meters
-                // Alt is in meters
                 const avgAlt = Math.max(
                     1,
                     ((p1.altitude || 0) + (p2.altitude || 0)) / 2,
                 );
                 const logAlt = Math.log10(avgAlt);
 
-                // High altitude = thinner line (Inverse related)
-                // logAlt range approx 0 (ground) to 4 (10,000m)
-                // Reduced base weight for thinner lines
                 const weight = Math.max(0.3, 3 - logAlt * 0.6);
                 const opacity = Math.max(0.2, 1 - logAlt / 5);
 
@@ -409,37 +444,37 @@
                         weight: weight,
                         opacity: opacity,
                         smoothFactor: 1,
+                        flightId: flightId, // Store flightID
                     },
                 ).addTo(map);
+
+                // Store original style params for animation reset
+                polyline._originalWeight = weight;
+                polyline._originalOpacity = opacity;
+                polyline._flightId = flightId; // Backup
 
                 pathSegments.push(polyline);
                 pathLayers.push(polyline);
             }
-            
+
             // Attach popup and hover effects to all segments
             if (pathSegments.length > 0 && flightInfo) {
-                const group = L.featureGroup(pathSegments);
-                
-                // Store original styles
-                const originalStyles = pathSegments.map(s => ({
-                    weight: s.options.weight,
-                    opacity: s.options.opacity,
-                }));
-                
                 // Create popup
-                popup = L.popup({ maxWidth: 350, className: 'flight-popup' });
-                
-                // Add hover effects
+                popup = L.popup({ maxWidth: 350, className: "flight-popup" });
+
+                // Add hover effects - ONLY if not animating
                 pathSegments.forEach((segment, idx) => {
-                    segment.on('mouseover', function(e) {
+                    segment.on("mouseover", function (e) {
+                        if (isAnimating) return; // Disable hover during animation
+
                         // Highlight all segments of this path
                         pathSegments.forEach((s, i) => {
                             s.setStyle({
-                                weight: originalStyles[i].weight * 2.5,
-                                opacity: Math.min(1, originalStyles[i].opacity * 2),
+                                weight: s._originalWeight * 2.5,
+                                opacity: Math.min(1, s._originalOpacity * 2),
                             });
                         });
-                        
+
                         // Show popup
                         if (popup) {
                             popup.setContent(popupContent);
@@ -447,16 +482,18 @@
                             popup.openOn(map);
                         }
                     });
-                    
-                    segment.on('mouseout', function() {
+
+                    segment.on("mouseout", function () {
+                        if (isAnimating) return;
+
                         // Restore original style
                         pathSegments.forEach((s, i) => {
                             s.setStyle({
-                                weight: originalStyles[i].weight,
-                                opacity: originalStyles[i].opacity,
+                                weight: s._originalWeight,
+                                opacity: s._originalOpacity,
                             });
                         });
-                        
+
                         // Close popup
                         if (popup) {
                             map.closePopup(popup);
@@ -466,51 +503,181 @@
             }
         };
 
-        // Draw arrival paths (blue)
-        Object.entries(arrivalPaths).forEach(([flightId, points]) =>
-            drawPath(points, "#60a5fa", flightId, true),
-        );
+        // Prepare flights for animation (sorted by date, newest first, limited for performance)
+        const allFlightsForAnimation = [];
+        const maxFlightsForAnimation = 50; // Limit for performance
 
-        // Draw departure paths (orange)
-        Object.entries(departurePaths).forEach(([flightId, points]) =>
-            drawPath(points, "#fb923c", flightId, false),
+        Object.entries(arrivalPaths).forEach(([flightId, points]) => {
+            if (
+                points.length > 0 &&
+                allFlightsForAnimation.length < maxFlightsForAnimation
+            ) {
+                const flightInfo = getFlightInfo(flightId, true);
+                const date =
+                    flightInfo?.flight?.arrival_date ||
+                    flightInfo?.flight?.arrival_time ||
+                    new Date(0);
+                allFlightsForAnimation.push({
+                    flightId,
+                    points,
+                    isArrival: true,
+                    date,
+                    flightInfo,
+                });
+            }
+        });
+        Object.entries(departurePaths).forEach(([flightId, points]) => {
+            if (
+                points.length > 0 &&
+                allFlightsForAnimation.length < maxFlightsForAnimation
+            ) {
+                const flightInfo = getFlightInfo(flightId, false);
+                const date =
+                    flightInfo?.flight?.departure_date ||
+                    flightInfo?.flight?.departure_time ||
+                    new Date(0);
+                allFlightsForAnimation.push({
+                    flightId,
+                    points,
+                    isArrival: false,
+                    date,
+                    flightInfo,
+                });
+            }
+        });
+
+        // Sort by date (newest first)
+        allFlightsForAnimation.sort(
+            (a, b) => b.date.getTime() - a.date.getTime(),
         );
+        animatedFlights = allFlightsForAnimation;
+
+        // Don't draw with opacity here - standard draw
+        Object.entries(arrivalPaths).forEach(([flightId, points]) => {
+            drawPath(points, "#60a5fa", flightId, true);
+        });
+
+        Object.entries(departurePaths).forEach(([flightId, points]) => {
+            drawPath(points, "#fb923c", flightId, false);
+        });
 
         // Fit map bounds to paths if any exist
-        if (pathLayers.length > 0) {
+        if (pathLayers.length > 0 && !isAnimating) {
             try {
                 const group = new L.featureGroup(pathLayers);
                 const bounds = group.getBounds();
                 if (bounds.isValid()) {
                     map.fitBounds(bounds.pad(0.1));
-                    console.log(`FlightMap: Displaying ${pathLayers.length} path segments`);
-                } else {
-                    // Fallback if bounds are invalid
-                    if (map && mapContainer && mapContainer.offsetParent !== null) {
-                        map.setView([LSGL_LAT, LSGL_LON], 11);
-                    }
                 }
             } catch (e) {
                 console.error("FlightMap: Error fitting bounds:", e);
-                // Only set view if map is ready
-                if (map && mapContainer && mapContainer.offsetParent !== null) {
-                    try {
-                        map.setView([LSGL_LAT, LSGL_LON], 11);
-                    } catch (viewError) {
-                        console.error("FlightMap: Error setting view:", viewError);
-                    }
-                }
+                if (map) map.setView([LSGL_LAT, LSGL_LON], 11);
             }
-        } else {
-            // Center on airport if no paths - only if map is ready
-            if (map && mapContainer && mapContainer.offsetParent !== null) {
-                try {
-                    map.setView([LSGL_LAT, LSGL_LON], 11);
-                    console.log("FlightMap: No paths to display, centering on airport");
-                } catch (e) {
-                    console.error("FlightMap: Error setting view:", e);
-                }
+        }
+    }
+
+    function startAnimation() {
+        if (isAnimating) return;
+
+        // If we have flights to animate
+        if (animatedFlights.length === 0) {
+            console.warn("No flights to animate");
+            return;
+        }
+
+        isAnimating = true;
+        currentFlightIndex = 0;
+
+        // Start animation loop
+        showFlightInAnimation(currentFlightIndex);
+
+        animationInterval = setInterval(() => {
+            currentFlightIndex++;
+            if (currentFlightIndex >= animatedFlights.length) {
+                currentFlightIndex = 0; // Loop or stop? User said "Loops" but "montrer à la suite".
+                // Usually loop implies restart. I'll restart.
             }
+            showFlightInAnimation(currentFlightIndex);
+        }, 4000); // 4 seconds per flight
+    }
+
+    function stopAnimation() {
+        if (animationInterval) {
+            clearInterval(animationInterval);
+            animationInterval = null;
+        }
+        isAnimating = false;
+        currentFlightIndex = 0;
+
+        // Reset all layers to original style
+        pathLayers.forEach((layer) => {
+            layer.setStyle({
+                weight: layer._originalWeight,
+                opacity: layer._originalOpacity,
+            });
+        });
+
+        // Clear info panel
+        flightInfoPanel = null;
+
+        // Fit bounds to all
+        if (pathLayers.length > 0 && map) {
+            try {
+                const group = new L.featureGroup(pathLayers);
+                const bounds = group.getBounds();
+                if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
+            } catch (e) {}
+        }
+    }
+
+    function showFlightInAnimation(index) {
+        if (index >= animatedFlights.length || !map) return;
+
+        const flight = animatedFlights[index];
+        const currentFlightId = flight.flightId;
+
+        // Update all layers
+        const currentSegments = [];
+        let matchingLayers = 0;
+
+        pathLayers.forEach((layer) => {
+            // Check both storage methods just in case
+            const layerFlightId = layer.options.flightId || layer._flightId;
+
+            if (layerFlightId === currentFlightId) {
+                matchingLayers++;
+                // Highlight current
+                layer.setStyle({
+                    weight: Math.max(3, layer._originalWeight * 3),
+                    opacity: 1, // Fully opaque
+                });
+                layer.bringToFront();
+                currentSegments.push(layer);
+            } else {
+                // Dim others
+                layer.setStyle({
+                    weight: 1,
+                    opacity: 0.05, // Very transparent (ghosts)
+                });
+            }
+        });
+
+        // Zoom to flight bounds
+        if (currentSegments.length > 0) {
+            const group = L.featureGroup(currentSegments);
+            const bounds = group.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds.pad(0.2), { animate: true, duration: 1 });
+            }
+        }
+
+        // Update info panel
+        if (flight.flightInfo) {
+            flightInfoPanel = {
+                flight: flight.flightInfo.flight,
+                metadata: flight.flightInfo.metadata,
+                isArrival: flight.isArrival,
+            };
         }
     }
 
@@ -530,8 +697,14 @@
         // Sort each group by time
         Object.keys(grouped).forEach((id) => {
             grouped[id].sort((a, b) => {
-                const timeA = a.requested_time instanceof Date ? a.requested_time.getTime() : (a.requested_time || 0);
-                const timeB = b.requested_time instanceof Date ? b.requested_time.getTime() : (b.requested_time || 0);
+                const timeA =
+                    a.requested_time instanceof Date
+                        ? a.requested_time.getTime()
+                        : a.requested_time || 0;
+                const timeB =
+                    b.requested_time instanceof Date
+                        ? b.requested_time.getTime()
+                        : b.requested_time || 0;
                 return timeA - timeB;
             });
         });
@@ -552,13 +725,16 @@
                             map.invalidateSize();
                             updateFlightPaths();
                         } catch (e) {
-                            console.error("FlightMap: Error during initialization:", e);
+                            console.error(
+                                "FlightMap: Error during initialization:",
+                                e,
+                            );
                         }
                     }
                 }, 300);
             }
         };
-        
+
         // Try immediately, then with a small delay if needed
         if (mapContainer) {
             init();
@@ -568,11 +744,14 @@
     });
 
     onDestroy(() => {
+        stopAnimation();
+        if (map?._updateTimeout) {
+            clearTimeout(map._updateTimeout);
+        }
         if (map) {
             map.remove();
         }
     });
-
 </script>
 
 <div class="map-container">
@@ -600,8 +779,133 @@
             <span class="opacity-box"></span>
             <span>Lignes fines = Haute altitude</span>
         </span>
+        <button
+            class="animation-button"
+            class:active={isAnimating}
+            onclick={() => (isAnimating ? stopAnimation() : startAnimation())}
+        >
+            {isAnimating ? "⏸ Arrêter" : "▶ Démarrer"} animation
+        </button>
     </div>
-    <div bind:this={mapContainer} class="map"></div>
+    <div class="map-wrapper">
+        <div bind:this={mapContainer} class="map"></div>
+        {#if flightInfoPanel?.flight && isAnimating}
+            <div class="flight-info-panel">
+                <div class="panel-header">
+                    <span
+                        class="type-badge"
+                        class:arrival={flightInfoPanel.isArrival}
+                    >
+                        {flightInfoPanel.isArrival
+                            ? "ATTERRISSAGE"
+                            : "DÉCOLLAGE"}
+                    </span>
+                </div>
+                <div class="panel-content">
+                    {#if flightInfoPanel.flight?.call_sign}
+                        <div class="callsign">
+                            {flightInfoPanel.flight.call_sign}
+                        </div>
+                    {/if}
+                    {#if flightInfoPanel.flight?.ICAO24}
+                        <div class="icao">
+                            ICAO24: {flightInfoPanel.flight.ICAO24}
+                        </div>
+                    {/if}
+                    {#if flightInfoPanel.flight}
+                        {#if flightInfoPanel.isArrival}
+                            {#if flightInfoPanel.flight.origin || flightInfoPanel.flight.departure_airport}
+                                <div class="info-item">
+                                    <strong>Provenance:</strong>
+                                    {flightInfoPanel.flight.origin ||
+                                        flightInfoPanel.flight
+                                            .departure_airport}
+                                </div>
+                            {/if}
+                            {#if flightInfoPanel.flight.arrival_time}
+                                <div class="info-item">
+                                    {new Intl.DateTimeFormat("fr-CH", {
+                                        day: "numeric",
+                                        month: "short",
+                                    }).format(
+                                        flightInfoPanel.flight.arrival_time,
+                                    )}
+                                    {flightInfoPanel.flight.arrival_time.toLocaleTimeString(
+                                        "fr-CH",
+                                        { hour: "2-digit", minute: "2-digit" },
+                                    )}
+                                </div>
+                            {/if}
+                        {:else}
+                            {#if flightInfoPanel.flight.destination || flightInfoPanel.flight.arrival_airport}
+                                <div class="info-item">
+                                    <strong>Destination:</strong>
+                                    {flightInfoPanel.flight.destination ||
+                                        flightInfoPanel.flight.arrival_airport}
+                                </div>
+                            {/if}
+                            {#if flightInfoPanel.flight.departure_time}
+                                <div class="info-item">
+                                    {new Intl.DateTimeFormat("fr-CH", {
+                                        day: "numeric",
+                                        month: "short",
+                                    }).format(
+                                        flightInfoPanel.flight.departure_time,
+                                    )}
+                                    {flightInfoPanel.flight.departure_time.toLocaleTimeString(
+                                        "fr-CH",
+                                        { hour: "2-digit", minute: "2-digit" },
+                                    )}
+                                </div>
+                            {/if}
+                        {/if}
+
+                        {#if flightInfoPanel.flight.arrival_time && flightInfoPanel.flight.departure_time}
+                            {@const duration = Math.round(
+                                (flightInfoPanel.flight.arrival_time -
+                                    flightInfoPanel.flight.departure_time) /
+                                    60000,
+                            )}
+                            {#if duration > 0}
+                                <div class="info-item">
+                                    <strong>Durée:</strong>
+                                    {Math.floor(duration / 60)}h {duration %
+                                        60}min
+                                </div>
+                            {/if}
+                        {/if}
+                    {/if}
+
+                    {#if flightInfoPanel.metadata}
+                        <div class="metadata-section">
+                            {#if flightInfoPanel.metadata.model}
+                                <div class="info-item">
+                                    <strong>Modèle:</strong>
+                                    {flightInfoPanel.metadata.model}
+                                </div>
+                            {/if}
+                            {#if flightInfoPanel.metadata.origin_country}
+                                <div class="info-item">
+                                    <strong>Pays:</strong>
+                                    {flightInfoPanel.metadata.origin_country}
+                                </div>
+                            {/if}
+                        </div>
+                        {#if flightInfoPanel.metadata.photo_url}
+                            <div class="photo-container">
+                                <img
+                                    src={flightInfoPanel.metadata.photo_url}
+                                    alt="Avion"
+                                    onerror={(e) =>
+                                        (e.target.style.display = "none")}
+                                />
+                            </div>
+                        {/if}
+                    {/if}
+                </div>
+            </div>
+        {/if}
+    </div>
 </div>
 
 <style>
@@ -654,7 +958,9 @@
         font-weight: 500;
         border: 1px solid rgba(59, 130, 246, 0.3);
         cursor: pointer;
-        transition: background 0.2s, border-color 0.2s;
+        transition:
+            background 0.2s,
+            border-color 0.2s;
     }
 
     .date-selector:hover {
@@ -704,11 +1010,104 @@
         opacity: 0.5;
     }
 
+    .map-wrapper {
+        position: relative;
+        display: flex;
+        gap: 16px;
+    }
+
     .map {
-        width: 100%;
+        flex: 1;
         height: 600px;
         border-radius: 8px;
         overflow: hidden;
+    }
+
+    .animation-button {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-left: auto;
+    }
+
+    .animation-button:hover {
+        background: rgba(59, 130, 246, 0.3);
+        border-color: rgba(59, 130, 246, 0.5);
+    }
+
+    .animation-button.active {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .flight-info-panel {
+        width: 300px;
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .panel-header {
+        margin-bottom: 16px;
+    }
+
+    .type-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 4px;
+        background: #f97316;
+        color: white;
+    }
+
+    .type-badge.arrival {
+        background: #3b82f6;
+    }
+
+    .panel-content {
+        color: white;
+    }
+
+    .callsign {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .icao {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 12px;
+        font-family: monospace;
+    }
+
+    .info-item {
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .photo-container {
+        margin-top: 16px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .photo-container img {
+        width: 100%;
+        height: auto;
+        display: block;
     }
 
     :global(.airport-marker) {

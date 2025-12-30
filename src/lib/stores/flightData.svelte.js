@@ -20,6 +20,7 @@ class FlightStore {
 
     isLoading = $state(false);
     loadError = $state(null);
+    isProcessing = $state(false);
     dateRangeDays = $state(7);
     dateRangeStart = $state(null); // null means use dateRangeDays, otherwise use start/end dates
     dateRangeEnd = $state(null);
@@ -28,39 +29,60 @@ class FlightStore {
         return combineFlights(this.arrivalsData, this.departuresData);
     });
 
-    // Helper to get flights filtered by days or date range
-    getFilteredFlights(days, startDate = null, endDate = null) {
-        if (!this.allFlights.length) return [];
+    // Memoized filtered flights to avoid recalculation
+    #filteredFlightsCache = new Map();
 
-        const arrivals = this.allFlights.filter(f => f.flight_type === 'arrival');
-        const departures = this.allFlights.filter(f => f.flight_type === 'departure');
+    // Helper to get flights filtered by days or date range with caching
+    getFilteredFlights(days, startDate = null, endDate = null) {
+        // Create cache key
+        const cacheKey = `${days}-${startDate?.getTime() || 'null'}-${endDate?.getTime() || 'null'}`;
+
+        // Return cached result if available
+        if (this.#filteredFlightsCache.has(cacheKey)) {
+            this.isProcessing = false;
+            return this.#filteredFlightsCache.get(cacheKey);
+        }
+
+        // Show processing indicator for expensive operations
+        this.isProcessing = true;
+
+        // Check if we have data to process
+        if (!this.arrivalsData.length && !this.departuresData.length) {
+            this.isProcessing = false;
+            return [];
+        }
 
         let fArrivals, fDepartures;
         
         if (startDate && endDate) {
             // Filter by date range
-            fArrivals = arrivals.filter(f => {
+            fArrivals = this.arrivalsData.filter(f => {
                 const date = f.arrival_date;
                 if (!date || !(date instanceof Date) || isNaN(date.getTime())) return false;
                 return date >= startDate && date <= endDate;
             });
-            fDepartures = departures.filter(f => {
+            fDepartures = this.departuresData.filter(f => {
                 const date = f.departure_date;
                 if (!date || !(date instanceof Date) || isNaN(date.getTime())) return false;
                 return date >= startDate && date <= endDate;
             });
         } else {
             // Filter by number of days
-            fArrivals = filterByDateRange(arrivals, days, 'arrival_date');
-            fDepartures = filterByDateRange(departures, days, 'departure_date');
+            fArrivals = filterByDateRange(this.arrivalsData, days, 'arrival_date');
+            fDepartures = filterByDateRange(this.departuresData, days, 'departure_date');
         }
 
-        // Join with metadata
-        const joined = combineFlights(fArrivals, fDepartures).map(flight => {
+        // Limit the number of flights for performance (keep most recent)
+        const maxFlights = 1000;
+        const limitedArrivals = fArrivals.slice(-Math.ceil(maxFlights / 2));
+        const limitedDepartures = fDepartures.slice(-Math.ceil(maxFlights / 2));
+
+        // Join with metadata (only for filtered results to improve performance)
+        const joined = combineFlights(limitedArrivals, limitedDepartures).map(flight => {
             // Convert ICAO24 to string and normalize for comparison
             const flightIcao = flight.ICAO24 ? String(flight.ICAO24).toLowerCase() : null;
             const metadata = this.aircraftMetadata.find(m => {
-                // CSV uses ICAO24 (uppercase), but check both cases
+                // Check both uppercase and lowercase versions
                 const metaIcao = (m.ICAO24 || m.icao24) ? String(m.ICAO24 || m.icao24).toLowerCase() : null;
                 return metaIcao && flightIcao && metaIcao === flightIcao;
             });
@@ -70,6 +92,18 @@ class FlightStore {
             };
         });
 
+        // Cache the result
+        this.#filteredFlightsCache.set(cacheKey, joined);
+
+        // Limit cache size to prevent memory leaks
+        if (this.#filteredFlightsCache.size > 10) {
+            const firstKey = this.#filteredFlightsCache.keys().next().value;
+            this.#filteredFlightsCache.delete(firstKey);
+        }
+
+        // Hide processing indicator
+        this.isProcessing = false;
+
         return joined;
     }
 
@@ -77,9 +111,25 @@ class FlightStore {
         return this.getFilteredFlights(this.dateRangeDays, this.dateRangeStart, this.dateRangeEnd);
     });
 
+    // Cache for daily counts
+    #dailyCountsCache = new Map();
+
     getDailyCounts(days, startDate = null, endDate = null) {
+        // Create cache key
+        const cacheKey = `counts-${days}-${startDate?.getTime() || 'null'}-${endDate?.getTime() || 'null'}`;
+
+        // Return cached result if available
+        if (this.#dailyCountsCache.has(cacheKey)) {
+            this.isProcessing = false;
+            return this.#dailyCountsCache.get(cacheKey);
+        }
+
+        // Get flights data for processing
         const flights = this.getFilteredFlights(days, startDate, endDate);
-        if (!flights.length) return [];
+        if (!flights.length) {
+            this.isProcessing = false;
+            return [];
+        }
 
         const counts = {};
 
@@ -121,10 +171,21 @@ class FlightStore {
             }
         });
 
-        // Filter out any entries with invalid dates before returning
-        return Object.values(counts)
+        const result = Object.values(counts)
             .filter(d => d.date instanceof Date && !isNaN(d.date.getTime()))
             .sort((a, b) => a.date - b.date);
+
+        // Cache the result
+        this.#dailyCountsCache.set(cacheKey, result);
+
+        // Limit cache size
+        if (this.#dailyCountsCache.size > 5) {
+            const firstKey = this.#dailyCountsCache.keys().next().value;
+            this.#dailyCountsCache.delete(firstKey);
+        }
+
+        this.isProcessing = false;
+        return result;
     }
 
     dailyFlightCounts = $derived.by(() => {
@@ -208,6 +269,7 @@ class FlightStore {
             this.loadError = error.message || 'Unknown error occurred while loading data';
         } finally {
             this.isLoading = false;
+            this.isProcessing = false;
         }
     }
 }

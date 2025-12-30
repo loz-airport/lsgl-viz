@@ -4,7 +4,7 @@
     import DailyFlightChart from "$lib/components/DailyFlightChart.svelte";
     import FlightTimesScatter from "$lib/components/FlightTimesScatter.svelte";
     import FlightMap from "$lib/components/FlightMap.svelte";
-    import bannerImage from "$lib/assets/banner_LAT.png";
+    import bannerImage from "$lib/assets/banner_LAT_dark.png";
 
     onMount(() => {
         flightStore.loadData();
@@ -28,10 +28,20 @@
 <div class="app">
     <header>
         <div class="header-content">
-            <div class="logo-section">
-                <img src={bannerImage} alt="Lausanne-Blécherette Airport" class="banner" />
-                <div class="logo-text">
+            <div class="hero-section">
+                <div class="banner-container">
+                    <img src={bannerImage} alt="Lausanne-Blécherette Airport" class="banner" />
+                </div>
+                <div class="title-section">
                     <h1>Lausanne-Blécherette Airport Flight Tracker</h1>
+                <div class="airport-image">
+                    <img
+                        src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
+                        alt="Vue aérienne de l'aérodrome de Lausanne-La Blécherette"
+                        class="aerial-image"
+                        loading="lazy"
+                    />
+                </div>
                 </div>
             </div>
         </div>
@@ -46,6 +56,11 @@
         {:else if flightStore.loadError}
             <div class="error">
                 <p>❌ Erreur lors du chargement: {flightStore.loadError}</p>
+            </div>
+        {:else if flightStore.isProcessing}
+            <div class="processing">
+                <div class="spinner"></div>
+                <p>Traitement des données...</p>
             </div>
         {:else}
             <div class="intro-text">
@@ -98,21 +113,31 @@
         margin: 0 auto;
     }
 
-    .logo-section {
+    .hero-section {
         display: flex;
-        align-items: center;
+        flex-direction: column;
         gap: 24px;
-        flex-wrap: wrap;
+    }
+
+    .banner-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 16px 0;
     }
 
     .banner {
-        height: 80px;
+        height: 100px;
         width: auto;
+        max-width: 100%;
         object-fit: contain;
     }
 
-    .logo-text {
-        flex: 1;
+    .title-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
     }
 
     h1 {
@@ -123,6 +148,22 @@
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        text-align: center;
+    }
+
+    .airport-image {
+        width: 100%;
+        max-width: 800px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .aerial-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: cover;
     }
 
     main {
@@ -134,7 +175,8 @@
     }
 
     .loading,
-    .error {
+    .error,
+    .processing {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -166,6 +208,10 @@
 
     .error p {
         color: #f87171;
+    }
+
+    .processing p {
+        color: rgba(255, 255, 255, 0.8);
     }
 
     .intro-text {
@@ -226,11 +272,15 @@
         }
 
         .banner {
-            height: 60px;
+            height: 70px;
         }
 
         h1 {
             font-size: 24px;
+        }
+
+        .airport-image {
+            max-width: 100%;
         }
 
         .intro-text {
