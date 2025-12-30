@@ -357,23 +357,38 @@
                 html += `<div style="font-size: 12px; color: #888; margin-bottom: 8px;">ICAO24: ${flight.ICAO24}</div>`;
             }
 
-            // Airports (No date as requested)
-            const origin =
+            // Airports using metadata from store
+            const originCode =
                 flight.origin ||
                 flight.departure_airport ||
                 flight.estDepartureAirport;
-            const destination =
+            const destCode =
                 flight.destination ||
                 flight.arrival_airport ||
                 flight.estArrivalAirport;
 
+            const originInfo = flightStore.getAirportInfo(originCode);
+            const destInfo = flightStore.getAirportInfo(destCode);
+
             if (isArrival) {
-                if (isValidValue(origin)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Provenance:</strong> ${origin}</div>`;
+                if (isValidValue(originCode)) {
+                    const name = originInfo?.name
+                        ? `${originInfo.name} (${originCode})`
+                        : originCode;
+                    html += `<div style="margin-bottom: 4px;"><strong>Provenance:</strong> ${name}</div>`;
+                    if (originInfo?.country) {
+                        html += `<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">${originInfo.country}</div>`;
+                    }
                 }
             } else {
-                if (isValidValue(destination)) {
-                    html += `<div style="margin-bottom: 4px;"><strong>Destination:</strong> ${destination}</div>`;
+                if (isValidValue(destCode)) {
+                    const name = destInfo?.name
+                        ? `${destInfo.name} (${destCode})`
+                        : destCode;
+                    html += `<div style="margin-bottom: 4px;"><strong>Destination:</strong> ${name}</div>`;
+                    if (destInfo?.country) {
+                        html += `<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">${destInfo.country}</div>`;
+                    }
                 }
             }
 
@@ -582,9 +597,14 @@
         // If we have flights to animate
         if (animatedFlights.length === 0) {
             console.warn("No flights to animate");
+            const msg =
+                "Aucun vol à animer pour la période sélectionnée (ou données non chargées).";
+            alert(msg);
+            console.log(msg);
             return;
         }
 
+        console.log("Starting animation...");
         isAnimating = true;
         currentFlightIndex = 0;
 
@@ -594,11 +614,10 @@
         animationInterval = setInterval(() => {
             currentFlightIndex++;
             if (currentFlightIndex >= animatedFlights.length) {
-                currentFlightIndex = 0; // Loop or stop? User said "Loops" but "montrer à la suite".
-                // Usually loop implies restart. I'll restart.
+                currentFlightIndex = 0;
             }
             showFlightInAnimation(currentFlightIndex);
-        }, 4000); // 4 seconds per flight
+        }, 4000);
     }
 
     function stopAnimation() {
@@ -760,7 +779,14 @@
         <div class="controls">
             <label class="date-selector-label">
                 Période:
-                <select bind:value={selectedDateRange} class="date-selector">
+                <select
+                    value={selectedDateRange}
+                    onchange={(e) => {
+                        selectedDateRange = e.currentTarget.value;
+                    }}
+                    class="date-selector"
+                    style="cursor: pointer;"
+                >
                     {#each dateRangeOptions as option}
                         <option value={option.value}>{option.label}</option>
                     {/each}

@@ -30,18 +30,22 @@
         <div class="header-content">
             <div class="hero-section">
                 <div class="banner-container">
-                    <img src={bannerImage} alt="Lausanne-Blécherette Airport" class="banner" />
+                    <img
+                        src={bannerImage}
+                        alt="Lausanne-Blécherette Airport"
+                        class="banner"
+                    />
                 </div>
                 <div class="title-section">
                     <h1>Lausanne-Blécherette Airport Flight Tracker</h1>
-                <div class="airport-image">
-                    <img
-                        src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
-                        alt="Vue aérienne de l'aérodrome de Lausanne-La Blécherette"
-                        class="aerial-image"
-                        loading="lazy"
-                    />
-                </div>
+                    <div class="airport-image">
+                        <img
+                            src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
+                            alt="Vue aérienne de l'aérodrome de Lausanne-La Blécherette"
+                            class="aerial-image"
+                            loading="lazy"
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -64,8 +68,30 @@
             </div>
         {:else}
             <div class="intro-text">
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+                <h2>
+                    Lausanne Airport Flight Tracker : Cap sur la transparence
+                </h2>
+                <p>
+                    Avec plus d'une dizaine de mouvements quotidiens, l'activité
+                    de l'aéroport de la Blécherette suscite de nombreuses
+                    questions. Le projet Lausanne Airport Flight Tracker vise à
+                    objectiver ces flux aériens. Ces avions effectuent-ils de
+                    simples boucles d'écolage ou des trajets vers d'autres
+                    destinations ? En récoltant et visualisant les données
+                    réelles de vol, nous offrons aux riverains comme aux
+                    passionnés de l'aéronautique un outil factuel pour observer
+                    l'occupation du ciel lausannois, au-delà des simples
+                    ressentis.
+                </p>
+                <p>
+                    Techniquement, le système s'appuie sur l'API d'OpenSky
+                    Network. Cette base de données communautaire agrège les
+                    signaux ADS-B des aéronefs équipés, assurant une source
+                    fiable et indépendante pour cartographier les vols avec
+                    précision.
+                </p>
             </div>
+
             <div class="charts">
                 <DailyFlightChart data={flightStore.dailyFlightCounts} />
                 <FlightTimesScatter data={flightStore.filteredFlights} />

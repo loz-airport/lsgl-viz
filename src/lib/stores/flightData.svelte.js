@@ -17,6 +17,7 @@ class FlightStore {
     arrivalStateVectors = $state([]);
     departureStateVectors = $state([]);
     aircraftMetadata = $state([]);
+    airportMetadata = $state([]);
 
     isLoading = $state(false);
     loadError = $state(null);
@@ -31,6 +32,29 @@ class FlightStore {
 
     // Memoized filtered flights to avoid recalculation
     #filteredFlightsCache = new Map();
+
+    // Helper to get airport info
+    getAirportInfo(icao) {
+        if (!icao) return null;
+
+        // Normalize ICAO code
+        const code = String(icao).toUpperCase().trim();
+
+        // Find in metadata
+        const metadata = this.airportMetadata.find(
+            m => String(m.icao || m.ICAO || '').toUpperCase() === code
+        );
+
+        if (metadata) {
+            return {
+                name: metadata.airport_name || metadata.name || code,
+                country: metadata.country_code || metadata.iso_country || metadata.country || null,
+                city: metadata.city || metadata.municipality || null
+            };
+        }
+
+        return null;
+    }
 
     // Helper to get flights filtered by days or date range with caching
     getFilteredFlights(days, startDate = null, endDate = null) {
@@ -53,7 +77,7 @@ class FlightStore {
         }
 
         let fArrivals, fDepartures;
-        
+
         if (startDate && endDate) {
             // Filter by date range
             fArrivals = this.arrivalsData.filter(f => {
@@ -86,9 +110,14 @@ class FlightStore {
                 const metaIcao = (m.ICAO24 || m.icao24) ? String(m.ICAO24 || m.icao24).toLowerCase() : null;
                 return metaIcao && flightIcao && metaIcao === flightIcao;
             });
+            const airportCode = flight.flight_type === 'arrival'
+                ? (flight.origin || flight.departure_airport || flight.estDepartureAirport)
+                : (flight.destination || flight.arrival_airport || flight.estArrivalAirport);
+
             return {
                 ...flight,
-                metadata: metadata || null
+                metadata: metadata || null,
+                airportInfo: this.getAirportInfo(airportCode)
             };
         });
 
@@ -191,7 +220,7 @@ class FlightStore {
     dailyFlightCounts = $derived.by(() => {
         return this.getDailyCounts(this.dateRangeDays, this.dateRangeStart, this.dateRangeEnd);
     });
-    
+
     // Helper method to set date range
     setDateRange(days = null, startDate = null, endDate = null) {
         this.dateRangeDays = days || 7;
@@ -205,17 +234,18 @@ class FlightStore {
 
         try {
             console.log("Loading flight data and metadata from GitHub...");
-            
+
             // Use Promise.allSettled to handle partial failures gracefully
             const results = await Promise.allSettled([
                 fetchCSV('bl_arr_all.csv'),
                 fetchCSV('bl_dep_all.csv'),
                 fetchCSV('bl_arr_SV_all.csv'),
                 fetchCSV('bl_dep_SV_all.csv'),
-                fetchAircraftMetadata()
+                fetchAircraftMetadata(),
+                fetchCSV('airport_metadata.csv')
             ]);
 
-            const [arrivalsResult, departuresResult, arrivalSVResult, departureSVResult, metadataResult] = results;
+            const [arrivalsResult, departuresResult, arrivalSVResult, departureSVResult, metadataResult, airportMetadataResult] = results;
 
             // Process results and collect errors
             const errors = [];
@@ -255,7 +285,14 @@ class FlightStore {
                 this.aircraftMetadata = [];
             }
 
-            console.log(`Loaded ${this.arrivalsData.length} arrivals, ${this.departuresData.length} departures, ${this.aircraftMetadata.length} metadata records`);
+            if (airportMetadataResult.status === 'fulfilled') {
+                this.airportMetadata = airportMetadataResult.value;
+            } else {
+                errors.push(`Airport Metadata: ${airportMetadataResult.reason?.message || 'Unknown error'}`);
+                this.airportMetadata = [];
+            }
+
+            console.log(`Loaded ${this.arrivalsData.length} arrivals, ${this.departuresData.length} departures, ${this.aircraftMetadata.length} aircraft metadata, ${this.airportMetadata.length} airport metadata records`);
 
             // If all requests failed, set a general error
             if (errors.length === results.length) {

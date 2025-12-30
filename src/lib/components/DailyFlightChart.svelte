@@ -139,18 +139,22 @@
 						y: "arrivals",
 						fill: "#3b82f6",
 						r: 3,
+						tip: false, // Disable built-in tip to use the custom one
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "departures",
 						fill: "#f97316",
 						r: 3,
+						tip: false,
 					}),
-					// Explicit tooltip mark for better control
+					// Explicit tooltip mark
 					Plot.tip(
 						rawData,
 						Plot.pointerX({
 							x: "date",
+							y: "arrivals", // Anchor to arrivals or just use x? pointerX mostly needs x.
+							// Adding a dummy channel or relying on X.
 							title: (d) => {
 								const dateStr = new Intl.DateTimeFormat(
 									"fr-CH",

@@ -44,6 +44,17 @@
         return COMMON_AIRPORTS[code] || null; // Return null if not found to fall back to code
     }
 
+    // Custom downward triangle symbol
+    const downTriangle = {
+        draw(context, size) {
+            const y = Math.sqrt(size) * 0.8;
+            context.moveTo(0, y);
+            context.lineTo(y, -y);
+            context.lineTo(-y, -y);
+            context.closePath();
+        },
+    };
+
     $effect(() => {
         if (container && data.length > 0 && data.length !== prevDataLength) {
             prevDataLength = data.length;
@@ -157,7 +168,7 @@
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: ["triangle", "circle"], // Changed to valid symbol
+                    range: [downTriangle, "circle"], // Custom down triangle for arrivals
                 },
                 marks: [
                     // Curves for round trips
@@ -218,8 +229,17 @@
                                       d.estArrivalAirport;
 
                             if (code) {
-                                const name = getAirportName(code);
-                                info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${name ? `${name} (${code})` : code}`;
+                                // Try to get info from store first, fall back to code
+                                const airportInfo =
+                                    flightStore.getAirportInfo(code);
+                                if (airportInfo && airportInfo.name) {
+                                    info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${airportInfo.name}`;
+                                    if (airportInfo.country) {
+                                        info += ` (${airportInfo.country})`;
+                                    }
+                                } else {
+                                    info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${code}`;
+                                }
                             }
 
                             return info;
