@@ -140,7 +140,7 @@
 				];
 			}
 
-			const plot = Plot.plot({
+			const plotOptions = {
 				marginLeft: 60,
 				marginBottom: 50,
 				width: container.offsetWidth > 0 ? container.offsetWidth : 600,
@@ -150,18 +150,6 @@
 					fontSize: "12px",
 					fontFamily: "Inter, system-ui, sans-serif",
 					color: "white",
-				},
-				fx: {
-					label: null,
-					axis: "bottom",
-					tickFormat: (d) => {
-						const date = d instanceof Date ? d : new Date(d);
-						if (isNaN(date.getTime())) return "";
-						return new Intl.DateTimeFormat("fr-CH", {
-							month: "short",
-							day: "numeric",
-						}).format(date);
-					},
 				},
 				x: {
 					label: null,
@@ -186,13 +174,30 @@
 					legend: true,
 				},
 				marks: marks,
-			});
+			};
+
+			// Only add fx scale for grouped bar chart
+			if (period === 7) {
+				plotOptions.fx = {
+					label: null,
+					axis: "bottom",
+					tickFormat: (d) => {
+						const date = d instanceof Date ? d : new Date(d);
+						if (isNaN(date.getTime())) return "";
+						return new Intl.DateTimeFormat("fr-CH", {
+							month: "short",
+							day: "numeric",
+						}).format(date);
+					},
+				};
+			}
+
+			const plot = Plot.plot(plotOptions);
 
 			if (plot) {
 				container.appendChild(plot);
 
-				// Re-enable input listener to support the custom tooltip if pointer is used
-				plot.addEventListener("input", () => {
+				plot.addEventListener("input", (e) => {
 					if (plot.value) {
 						hoveredData = plot.value;
 					} else {

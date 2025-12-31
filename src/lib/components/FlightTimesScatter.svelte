@@ -99,15 +99,11 @@
 
                 const hours = time.getHours() + time.getMinutes() / 60;
 
-                // Get airport code
+                // Get airport code from CSV headers: departure_airport_ICAO or destination_airport_ICAO
                 const airportCode =
                     flight.flight_type === "arrival"
-                        ? flight.origin ||
-                          flight.departure_airport ||
-                          flight.estDepartureAirport
-                        : flight.destination ||
-                          flight.arrival_airport ||
-                          flight.estArrivalAirport;
+                        ? flight.departure_airport_ICAO
+                        : flight.destination_airport_ICAO;
 
                 const enhancedFlight = {
                     ...flight,
@@ -289,12 +285,10 @@
     function formatAirport(type, flight) {
         const code =
             type === "arrival"
-                ? flight.origin ||
-                  flight.departure_airport ||
-                  flight.estDepartureAirport
-                : flight.destination ||
-                  flight.arrival_airport ||
-                  flight.estArrivalAirport;
+                ? flight.departure_airport_ICAO
+                : flight.destination_airport_ICAO;
+
+        if (!code || code === "LSGL") return "Local (LSGL)"; // Handle local flights specially
 
         if (!code) return "Inconnu";
 
