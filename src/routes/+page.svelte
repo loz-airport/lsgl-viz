@@ -68,9 +68,7 @@
             </div>
         {:else}
             <div class="intro-text">
-                <h2>
-                    Lausanne Airport Flight Tracker: Cap sur la transparence
-                </h2>
+                <h2>Cap sur la transparence</h2>
                 <p>
                     Avec plus d'une dizaine de mouvements quotidiens, l'activité
                     de l'aéroport de la Blécherette suscite de nombreuses
