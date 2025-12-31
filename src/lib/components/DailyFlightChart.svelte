@@ -7,21 +7,8 @@
 
 	let container = $state();
 	let period = $state(7);
-
-	// Track previous data length to avoid unnecessary re-renders
-	let prevDataLength = $state(0);
-
-	$effect(() => {
-		if (container && data.length > 0) {
-			// Re-render whenever data changes, regardless of length
-			// This ensures 30-day view updates even if data count happens to be similar
-			// and ensures state changes (period) trigger re-renders if they affect data
-			clearTimeout(container._renderTimeout);
-			container._renderTimeout = setTimeout(() => {
-				renderChart();
-			}, 150);
-		}
-	});
+	let hoveredData = $state(null);
+	let tooltipPos = $state({ x: 0, y: 0 });
 
 	function handlePeriodChange(newPeriod) {
 		period = newPeriod;
@@ -30,7 +17,6 @@
 
 	function renderChart() {
 		const rawData = $state.snapshot(data);
-		// Clear previous chart
 		if (!container) return;
 		container.innerHTML = "";
 
@@ -39,10 +25,23 @@
 			let chartData = [];
 
 			if (period === 7) {
-				// Transform data for grouped bar chart
 				chartData = rawData.flatMap((d) => [
-					{ date: d.date, type: "Atterrissages", count: d.arrivals },
-					{ date: d.date, type: "Décollages", count: d.departures },
+					{
+						date: d.date,
+						type: "Atterrissages",
+						arrivals: d.arrivals,
+						departures: d.departures,
+						count: d.arrivals,
+						isGrouped: true,
+					},
+					{
+						date: d.date,
+						type: "Décollages",
+						arrivals: d.arrivals,
+						departures: d.departures,
+						count: d.departures,
+						isGrouped: true,
+					},
 				]);
 
 				marks = [
@@ -51,76 +50,54 @@
 						y: "count",
 						fill: "type",
 						fx: "date",
+						stroke: "white",
+						strokeWidth: 0.5,
 					}),
-					Plot.tip(
+					Plot.ruleY([0]),
+					Plot.dot(
 						chartData,
-						Plot.pointerX({
+						Plot.pointer({
 							x: "type",
-							fx: "date",
 							y: "count",
-							title: (d) => {
-								const dateStr = new Intl.DateTimeFormat(
-									"fr-CH",
-									{
-										day: "numeric",
-										month: "long",
-										year: "numeric",
-									},
-								).format(d.date);
-								// Find the full data for this date
-								const dateData = rawData.find(
-									(r) =>
-										r.date.getTime() === d.date.getTime(),
-								);
-								if (dateData) {
-									return `${dateStr}\nAtterrissages: ${dateData.arrivals}\nDécollages: ${dateData.departures}`;
-								}
-								return `${dateStr}\n${d.type}: ${d.count}`;
-							},
+							fx: "date",
+							fill: "none",
+							stroke: "none",
 						}),
 					),
-					Plot.ruleY([0]),
 				];
 			} else {
-				// Generate weekend background rectangles
 				const weekendRects = [];
 				if (rawData.length > 0) {
-					const minDate = new Date(
-						Math.min(...rawData.map((d) => d.date.getTime())),
-					);
-					const maxDate = new Date(
-						Math.max(...rawData.map((d) => d.date.getTime())),
-					);
+					const minDates = rawData
+						.map((d) => d.date.getTime())
+						.filter((t) => !isNaN(t));
+					if (minDates.length > 0) {
+						const minDate = new Date(Math.min(...minDates));
+						const maxDate = new Date(Math.max(...minDates));
 
-					for (
-						let d = new Date(minDate);
-						d <= maxDate;
-						d.setDate(d.getDate() + 1)
-					) {
-						const dayOfWeek = d.getDay();
-						if (dayOfWeek === 0 || dayOfWeek === 6) {
-							const nextDate = new Date(d);
-							nextDate.setDate(nextDate.getDate() + 1);
-							weekendRects.push({
-								x1: new Date(d),
-								x2: nextDate,
-							});
+						for (
+							let d = new Date(minDate);
+							d <= maxDate;
+							d.setDate(d.getDate() + 1)
+						) {
+							if (d.getDay() === 0 || d.getDay() === 6) {
+								const nextDate = new Date(d);
+								nextDate.setDate(nextDate.getDate() + 1);
+								weekendRects.push({
+									x1: new Date(d),
+									x2: nextDate,
+								});
+							}
 						}
 					}
 				}
-				// Line chart for 30 days
+
 				marks = [
-					// Weekend background - full height rectangles (using null for y to span the full chart)
-					...(weekendRects.length > 0
-						? [
-								Plot.rectX(weekendRects, {
-									x1: "x1",
-									x2: "x2",
-									fill: "rgba(128, 128, 128, 0.15)",
-									stroke: "none",
-								}),
-							]
-						: []),
+					Plot.rectX(weekendRects, {
+						x1: "x1",
+						x2: "x2",
+						fill: "rgba(255, 255, 255, 0.05)",
+					}),
 					Plot.lineY(rawData, {
 						x: "date",
 						y: "arrivals",
@@ -139,40 +116,27 @@
 						x: "date",
 						y: "arrivals",
 						fill: "#3b82f6",
-						r: 3,
-						tip: false, // Disable built-in tip to use the custom one
+						r: 4,
+						stroke: "white",
 					}),
 					Plot.dot(rawData, {
 						x: "date",
 						y: "departures",
 						fill: "#f97316",
-						r: 3,
-						tip: false,
+						r: 4,
+						stroke: "white",
 					}),
-					// Explicit tooltip mark
-					Plot.tip(
+					Plot.ruleY([0]),
+					// Transform to track the pointer and update plot.value
+					Plot.dot(
 						rawData,
-						Plot.pointerX({
+						Plot.pointer({
 							x: "date",
-							y: "arrivals", // Anchor to arrivals or just use x? pointerX mostly needs x.
-							title: (d) => {
-								// Ensure date is valid
-								if (!d.date || isNaN(d.date.getTime()))
-									return null;
-
-								const dateStr = new Intl.DateTimeFormat(
-									"fr-CH",
-									{
-										day: "numeric",
-										month: "long",
-										year: "numeric",
-									},
-								).format(d.date);
-								return `${dateStr}\nAtterrissages: ${d.arrivals}\nDécollages: ${d.departures}`;
-							},
+							y: "arrivals",
+							fill: "none",
+							stroke: "none",
 						}),
 					),
-					Plot.ruleY([0]),
 				];
 			}
 
@@ -183,38 +147,31 @@
 				height: 400,
 				style: {
 					background: "transparent",
-					fontSize: "14px",
+					fontSize: "12px",
 					fontFamily: "Inter, system-ui, sans-serif",
+					color: "white",
 				},
 				fx: {
 					label: null,
 					axis: "bottom",
 					tickFormat: (d) => {
-						const date = new Date(d);
+						const date = d instanceof Date ? d : new Date(d);
 						if (isNaN(date.getTime())) return "";
-						try {
-							return new Intl.DateTimeFormat("fr-CH", {
-								month: "short",
-								day: "numeric",
-							}).format(date);
-						} catch (e) {
-							return "";
-						}
+						return new Intl.DateTimeFormat("fr-CH", {
+							month: "short",
+							day: "numeric",
+						}).format(date);
 					},
 				},
 				x: {
 					label: null,
 					tickFormat: (d) => {
-						const date = new Date(d);
+						const date = d instanceof Date ? d : new Date(d);
 						if (isNaN(date.getTime())) return "";
-						try {
-							return new Intl.DateTimeFormat("fr-CH", {
-								month: "short",
-								day: "numeric",
-							}).format(date);
-						} catch (e) {
-							return "";
-						}
+						return new Intl.DateTimeFormat("fr-CH", {
+							month: "short",
+							day: "numeric",
+						}).format(date);
 					},
 					grid: period === 30,
 				},
@@ -231,23 +188,35 @@
 				marks: marks,
 			});
 
-			if (plot) container.appendChild(plot);
+			if (plot) {
+				container.appendChild(plot);
+
+				// Re-enable input listener to support the custom tooltip if pointer is used
+				plot.addEventListener("input", () => {
+					if (plot.value) {
+						hoveredData = plot.value;
+					} else {
+						hoveredData = null;
+					}
+				});
+			}
 		} catch (e) {
 			console.error("Plot rendering failed:", e);
 		}
 	}
 
 	onMount(() => {
-		if (data.length > 0) {
-			renderChart();
-		}
+		if (data.length > 0) renderChart();
+
+		const handleMouseMove = (e) => {
+			tooltipPos = { x: e.clientX, y: e.clientY };
+		};
+		window.addEventListener("mousemove", handleMouseMove);
+		return () => window.removeEventListener("mousemove", handleMouseMove);
 	});
 
-	// Cleanup timeouts on destroy
 	onDestroy(() => {
-		if (container?._renderTimeout) {
-			clearTimeout(container._renderTimeout);
-		}
+		if (container?._renderTimeout) clearTimeout(container._renderTimeout);
 	});
 </script>
 
@@ -265,12 +234,42 @@
 			>
 		</div>
 	</div>
+
 	{#if data.length === 0}
 		<div class="empty-state">
 			<p>Chargement des données...</p>
 		</div>
 	{:else}
 		<div bind:this={container} class="chart"></div>
+	{/if}
+
+	{#if hoveredData}
+		<div
+			class="custom-tooltip"
+			style="left: {tooltipPos.x + 15}px; top: {tooltipPos.y + 15}px;"
+		>
+			<div class="tooltip-date">
+				{new Intl.DateTimeFormat("fr-CH", {
+					day: "numeric",
+					month: "long",
+					year: "numeric",
+				}).format(hoveredData.date)}
+			</div>
+			<div class="tooltip-row">
+				<span class="dot arrivals"></span>
+				<span class="label">Atterrissages:</span>
+				<span class="value"
+					>{hoveredData.arrivals ?? hoveredData.count}</span
+				>
+			</div>
+			{#if hoveredData.departures !== undefined}
+				<div class="tooltip-row">
+					<span class="dot departures"></span>
+					<span class="label">Décollages:</span>
+					<span class="value">{hoveredData.departures}</span>
+				</div>
+			{/if}
+		</div>
 	{/if}
 </div>
 
@@ -282,6 +281,58 @@
 		margin-bottom: 24px;
 		backdrop-filter: blur(10px);
 		border: 1px solid rgba(255, 255, 255, 0.1);
+		position: relative;
+	}
+
+	.custom-tooltip {
+		position: fixed;
+		pointer-events: none;
+		background: #1e293b;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 8px;
+		padding: 10px 14px;
+		color: white;
+		font-size: 13px;
+		z-index: 9999;
+		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+		backdrop-filter: blur(4px);
+	}
+
+	.tooltip-date {
+		font-weight: 600;
+		margin-bottom: 8px;
+		color: rgba(255, 255, 255, 0.9);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		padding-bottom: 4px;
+	}
+
+	.tooltip-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 4px;
+	}
+
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+	}
+
+	.dot.arrivals {
+		background: #3b82f6;
+	}
+	.dot.departures {
+		background: #f97316;
+	}
+
+	.tooltip-row .label {
+		color: rgba(255, 255, 255, 0.6);
+	}
+
+	.tooltip-row .value {
+		font-weight: 700;
+		margin-left: auto;
 	}
 
 	.header {

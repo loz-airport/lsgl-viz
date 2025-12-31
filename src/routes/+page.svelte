@@ -85,8 +85,9 @@
                     Techniquement, le système s'appuie sur l'API d'OpenSky
                     Network. Cette base de données communautaire agrège les
                     signaux ADS-B des aéronefs équipés, assurant une source
-                    fiable et indépendante pour cartographier les vols avec
-                    précision.
+                    fiable et indépendante pour cartographier les vols. Ces
+                    données sont actualisées deux fois par jour et ont un délai
+                    de 24h sur le temps réel.
                 </p>
             </div>
 
@@ -314,5 +315,25 @@
         .intro-text p {
             font-size: 14px;
         }
+    }
+
+    :global(figure) {
+        margin: 0;
+    }
+
+    :global(.plot-d3-tip),
+    :global(.plot-tip) {
+        color: #1e293b !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        font-family: "Inter", system-ui, sans-serif !important;
+        font-size: 13px !important;
+        padding: 8px 12px !important;
+        border-radius: 6px !important;
+        pointer-events: none !important;
+        z-index: 1000 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
     }
 </style>

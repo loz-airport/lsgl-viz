@@ -42,7 +42,10 @@ class FlightStore {
 
         // Find in metadata
         const metadata = this.airportMetadata.find(
-            m => String(m.icao || m.ICAO || '').toUpperCase() === code
+            m => {
+                const mCode = m.icao || m.ICAO || m.ident || m.gps_code || '';
+                return String(mCode).toUpperCase() === code;
+            }
         );
 
         if (metadata) {

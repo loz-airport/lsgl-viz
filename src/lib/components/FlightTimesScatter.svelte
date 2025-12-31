@@ -44,37 +44,29 @@
         return COMMON_AIRPORTS[code] || null; // Return null if not found to fall back to code
     }
 
-    // Custom downward triangle symbol
+    // Custom downward triangle symbol matching Plot's standard triangle size
     const downTriangle = {
         draw(context, size) {
-            // User provided path for d3: M0,-50 L50,50 L-50,50 Z
-            // We need to scale this to the 'size' (area) provided by Plot
-            // standard size is usually in px^2. sqrt(size) is roughly the side/diameter.
-            const s = Math.sqrt(size);
-            // Triangle down: top-left (-,-), top-right (+,-), bottom (0, +) ?
-            // The user's example "M0,-50 L50,50 L-50,50 Z" looks like:
-            // 0,-50 (top center?). Wait. SVG coord system: 0,0 is top-left usually?
-            // Actually in Plot symbols, 0,0 is center.
-            // Downward pointing:
-            const h = s * 0.866; // height of equilateral triangle side s
-            const r = h / 2; // roughly radius
+            // Standard equilateral triangle has area = size
+            // To match visual weight, we match the area and then scale up slightly (1.1x)
+            const r =
+                (Math.sqrt((4 * size) / Math.sqrt(3)) / Math.sqrt(3)) * 1.1;
+            const w = (r * Math.sqrt(3)) / 2;
 
-            // Let's just use a simple inverted triangle logic
-            context.moveTo(0, s / 1.5); // Bottom tip
-            context.lineTo(s / 1.5, -s / 2); // Top right
-            context.lineTo(-s / 1.5, -s / 2); // Top left
+            context.moveTo(0, r); // Bottom tip
+            context.lineTo(w, -r / 2); // Top right
+            context.lineTo(-w, -r / 2); // Top left
             context.closePath();
         },
     };
 
     $effect(() => {
-        if (container && data.length > 0 && data.length !== prevDataLength) {
-            prevDataLength = data.length;
-            // Debounce chart rendering to avoid excessive re-renders
+        if (container && data.length > 0) {
+            // Debounce chart rendering
             clearTimeout(container._renderTimeout);
             container._renderTimeout = setTimeout(() => {
                 renderChart();
-            }, 150);
+            }, 100);
         }
     });
 
@@ -85,16 +77,13 @@
 
     function renderChart() {
         const rawData = $state.snapshot(data);
-        console.log(
-            "Rendering FlightTimesScatter with",
-            rawData.length,
-            "items",
-        );
-        // Clear previous chart
         if (!container) return;
         container.innerHTML = "";
 
         // Prepare data with time of day
+        // Group by aircraft and date to facilitate connections
+        const flightsByAircraftAndDate = {};
+
         const chartData = rawData
             .map((flight) => {
                 const time =
@@ -110,38 +99,79 @@
 
                 const hours = time.getHours() + time.getMinutes() / 60;
 
-                return {
+                // Get airport code
+                const airportCode =
+                    flight.flight_type === "arrival"
+                        ? flight.origin ||
+                          flight.departure_airport ||
+                          flight.estDepartureAirport
+                        : flight.destination ||
+                          flight.arrival_airport ||
+                          flight.estArrivalAirport;
+
+                const enhancedFlight = {
                     ...flight,
                     date: date,
                     timeOfDay: hours,
+                    airportCode: airportCode,
+                    airportInfo: flightStore.getAirportInfo(airportCode),
                     formattedTime: time.toLocaleTimeString("fr-CH", {
                         hour: "2-digit",
                         minute: "2-digit",
                     }),
+                    fullDateTime: time.toLocaleString("fr-CH", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }),
                 };
+
+                // Grouping for connections
+                const key = `${flight.ICAO24}_${date.toISOString().split("T")[0]}`;
+                if (!flightsByAircraftAndDate[key])
+                    flightsByAircraftAndDate[key] = [];
+                flightsByAircraftAndDate[key].push(enhancedFlight);
+
+                return enhancedFlight;
             })
             .filter((d) => d !== null);
 
-        // Find round trips (same aircraft departing and arriving on same day at LSGL)
-        /** @type {any[]} */
-        const roundTrips = [];
-        const grouped = chartData.reduce((acc, flight) => {
-            const key = `${flight.ICAO24}_${flight.date.toISOString().split("T")[0]}`;
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(flight);
-            return acc;
-        }, {});
+        // Build connection segments
+        const connectionSegments = [];
+        Object.values(flightsByAircraftAndDate).forEach((flights) => {
+            if (flights.length > 1) {
+                // Sort by time
+                flights.sort((a, b) => a.timeOfDay - b.timeOfDay);
+                for (let i = 0; i < flights.length - 1; i++) {
+                    const f1 = flights[i];
+                    const f2 = flights[i + 1];
+                    // Connect Arrival -> Departure (Stopover) or Departure -> Arrival (Training)
+                    if (f1.flight_type !== f2.flight_type) {
+                        const midTime = (f1.timeOfDay + f2.timeOfDay) / 2;
+                        // Offset by ~12 hours to create a visible bow on the time axis
+                        const bowOffset = 1000 * 60 * 60 * 12; // 12 hours in ms
 
-        Object.values(grouped).forEach((flights) => {
-            if (Array.isArray(flights) && flights.length >= 2) {
-                const departure = flights.find(
-                    (f) => f.flight_type === "departure",
-                );
-                const arrival = flights.find(
-                    (f) => f.flight_type === "arrival",
-                );
-                if (departure && arrival) {
-                    roundTrips.push({ departure, arrival });
+                        const id = Math.random().toString(36).substr(2, 9);
+
+                        // We use a group id for Plot.line
+                        connectionSegments.push({
+                            id,
+                            x: new Date(f1.date.getTime()),
+                            y: f1.timeOfDay,
+                        });
+                        connectionSegments.push({
+                            id,
+                            x: new Date(f1.date.getTime() + bowOffset),
+                            y: midTime,
+                        });
+                        connectionSegments.push({
+                            id,
+                            x: new Date(f2.date.getTime()),
+                            y: f2.timeOfDay,
+                        });
+                    }
                 }
             }
         });
@@ -156,6 +186,7 @@
                     background: "transparent",
                     fontSize: "14px",
                     fontFamily: "Inter, system-ui, sans-serif",
+                    color: "white",
                 },
                 x: {
                     type: "time",
@@ -167,104 +198,68 @@
                         }).format(d),
                 },
                 y: {
-                    label: "Heure de la journée",
+                    label: "Heure",
                     domain: [0, 24],
-                    ticks: 12,
+                    ticks: 24,
                     tickFormat: (h) =>
                         `${Math.floor(h).toString().padStart(2, "0")}:00`,
                     grid: true,
                 },
                 color: {
                     domain: ["arrival", "departure"],
-                    range: ["#3b82f6", "#f97316"], // Bleu pour atterrissages, orange pour décollages
+                    range: ["#f87171", "#22d3ee"], // Red for arrival (down), Cyan for departure (up)
+                    legend: true,
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
-                    range: [downTriangle, "triangle"], // Use standard triangle for departures
+                    range: [downTriangle, "triangle"],
                 },
                 marks: [
-                    // Curves for round trips
-                    Plot.link(roundTrips, {
-                        x1: (d) => d.departure.date,
-                        y1: (d) => d.departure.timeOfDay,
-                        x2: (d) => d.arrival.date,
-                        y2: (d) => d.arrival.timeOfDay,
-                        stroke: "#ffffff",
-                        strokeWidth: 2,
-                        opacity: 0.4,
-                        curve: "natural",
+                    // Connections
+                    Plot.line(connectionSegments, {
+                        x: "x",
+                        y: "y",
+                        z: "id", // Group by segment ID
+                        stroke: "white",
+                        strokeWidth: 1.5,
+                        opacity: 0.2,
+                        curve: "natural", // Makes it look curved
                     }),
-                    // Points for all flights
+                    // Background interaction helper
+                    Plot.dot(chartData, {
+                        x: "date",
+                        y: "timeOfDay",
+                        r: 12,
+                        fill: "transparent",
+                        stroke: "none",
+                    }),
+                    // Points for all flights - TIP DISABLED
                     Plot.dot(chartData, {
                         x: "date",
                         y: "timeOfDay",
                         fill: "flight_type",
                         symbol: "flight_type",
                         r: period === 7 ? 6 : 4,
-                        opacity: 0.8,
+                        opacity: 0.9,
                         stroke: "white",
-                        strokeWidth: 0.5,
-                        // Disable built-in tip to avoid empty white box conflicts with sidebar
+                        strokeWidth: 1,
                         tip: false,
-                        title: (d) => {
-                            const dateStr = new Intl.DateTimeFormat("fr-CH", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                            }).format(d.date);
-                            let info = `${dateStr}\n${d.flight_type === "arrival" ? "Atterrissage" : "Décollage"}: ${d.formattedTime}`;
-
-                            // Add flight duration if available
-                            if (d.arrival_time && d.departure_time) {
-                                const duration = Math.round(
-                                    (d.arrival_time - d.departure_time) / 60000,
-                                );
-                                if (duration > 0) {
-                                    const hours = Math.floor(duration / 60);
-                                    const minutes = duration % 60;
-                                    const durationStr =
-                                        hours > 0
-                                            ? `${hours}h ${minutes}min`
-                                            : `${minutes}min`;
-                                    info += `\nTemps de vol: ${durationStr}`;
-                                }
-                            }
-
-                            // Add airport info
-                            const code =
-                                d.flight_type === "arrival"
-                                    ? d.origin ||
-                                      d.departure_airport ||
-                                      d.estDepartureAirport
-                                    : d.destination ||
-                                      d.arrival_airport ||
-                                      d.estArrivalAirport;
-
-                            if (code) {
-                                // Try to get info from store first, fall back to code
-                                const airportInfo =
-                                    flightStore.getAirportInfo(code);
-                                if (airportInfo && airportInfo.name) {
-                                    info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${airportInfo.name}`;
-                                    if (airportInfo.country) {
-                                        info += ` (${airportInfo.country})`;
-                                    }
-                                } else {
-                                    info += `\n${d.flight_type === "arrival" ? "Provenance" : "Destination"}: ${code}`;
-                                }
-                            }
-
-                            return info;
-                        },
                     }),
+                    // Pointer for updating sidebar
+                    Plot.dot(
+                        chartData,
+                        Plot.pointer({
+                            x: "date",
+                            y: "timeOfDay",
+                            fill: "none",
+                            stroke: "none",
+                        }),
+                    ),
                 ],
             });
 
             if (plot) {
-                // Add event listener to the SVG to show our custom tooltip
                 container.appendChild(plot);
-
-                // Hacky way to catch the hover data from Plot's tip
                 plot.addEventListener("input", () => {
                     if (plot.value) {
                         hoveredFlight = plot.value;
@@ -279,20 +274,48 @@
     }
 
     onMount(() => {
-        console.log("FlightTimesScatter mounted", {
-            hasContainer: !!container,
-        });
         if (data.length > 0) {
             renderChart();
         }
     });
 
-    // Cleanup timeouts on destroy
     onDestroy(() => {
         if (container?._renderTimeout) {
             clearTimeout(container._renderTimeout);
         }
     });
+
+    // Helper to format airport string
+    function formatAirport(type, flight) {
+        const code =
+            type === "arrival"
+                ? flight.origin ||
+                  flight.departure_airport ||
+                  flight.estDepartureAirport
+                : flight.destination ||
+                  flight.arrival_airport ||
+                  flight.estArrivalAirport;
+
+        if (!code) return "Inconnu";
+
+        const info = flightStore.getAirportInfo(code);
+        if (info && info.name) {
+            return `${info.city || info.name}, ${info.country || ""} (${code})`;
+        }
+        return code;
+    }
+
+    // Helper to calculate duration
+    function getDuration(flight) {
+        if (flight.arrival_time && flight.departure_time) {
+            const diff = Math.abs(flight.arrival_time - flight.departure_time);
+            const minutes = Math.floor(diff / 60000);
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return h > 0 ? `${h}h ${m}m` : `${m}min`;
+        }
+        return "--";
+    }
 </script>
 
 <div class="chart-container">
@@ -344,6 +367,36 @@
                 <div class="icao">{hoveredFlight.ICAO24}</div>
             </div>
 
+            <div class="route-info">
+                <div class="route-row">
+                    <span class="label"
+                        >{hoveredFlight.flight_type === "arrival"
+                            ? "Provenance"
+                            : "Destination"}:</span
+                    >
+                    <span class="value"
+                        >{formatAirport(
+                            hoveredFlight.flight_type,
+                            hoveredFlight,
+                        )}</span
+                    >
+                </div>
+                <div class="route-row">
+                    <span class="label">Date:</span>
+                    <span class="value"
+                        >{new Intl.DateTimeFormat("fr-CH", {
+                            dateStyle: "full",
+                        }).format(hoveredFlight.date)}</span
+                    >
+                </div>
+                {#if hoveredFlight.arrival_time && hoveredFlight.departure_time}
+                    <div class="route-row">
+                        <span class="label">Durée vol:</span>
+                        <span class="value">{getDuration(hoveredFlight)}</span>
+                    </div>
+                {/if}
+            </div>
+
             {#if hoveredFlight.metadata}
                 <div class="metadata-info">
                     {#if isValidValue(hoveredFlight.metadata.model)}
@@ -361,11 +414,11 @@
                     {/if}
                     <div class="registration">
                         {#if isValidValue(hoveredFlight.metadata.origin_country)}
-                            <strong>Pays d'immatriculation:</strong>
+                            <strong>Pays:</strong>
                             {hoveredFlight.metadata.origin_country}
                         {:else}
                             <span style="color: rgba(255, 255, 255, 0.5);"
-                                >Pays d'immatriculation: Inconnu</span
+                                >Pays: Inconnu</span
                             >
                         {/if}
                     </div>
@@ -399,7 +452,7 @@
             {/if}
         {:else}
             <div class="panel-placeholder">
-                <p>Survolez un vol pour voir les détails de l'appareil</p>
+                <p>Survolez un vol pour voir les détails</p>
             </div>
         {/if}
     </div>
@@ -539,6 +592,39 @@
         min-height: 400px;
     }
 
+    .route-info {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .route-row {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 8px;
+    }
+
+    .route-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+        margin-bottom: 2px;
+        letter-spacing: 0.5px;
+    }
+
+    .value {
+        font-size: 14px;
+        color: white;
+        font-weight: 500;
+        line-height: 1.4;
+    }
+
     .panel-placeholder {
         display: flex;
         align-items: center;
@@ -560,11 +646,12 @@
         font-weight: 700;
         padding: 2px 8px;
         border-radius: 4px;
-        background: #f97316;
+        background: #22d3ee; /* Cyan for Departure */
+        text-transform: uppercase;
     }
 
     .type-badge.arrival {
-        background: #3b82f6;
+        background: #f87171; /* Red for Arrival */
     }
 
     .time {

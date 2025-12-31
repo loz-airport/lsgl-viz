@@ -83,6 +83,7 @@
     const dateRangeOptions = $derived(getDateRangeOptions());
 
     function handleDateRangeChange() {
+        console.log("Date range changed:", selectedDateRange);
         const option = dateRangeOptions.find(
             (opt) => opt.value === selectedDateRange,
         );
@@ -223,7 +224,9 @@
                 return false;
             }
             try {
-                const date = sv.arrival_date;
+                const date = new Date(sv.arrival_date);
+                if (isNaN(date.getTime())) return false;
+
                 return (
                     date >= startDate &&
                     date <= endDate &&
@@ -246,7 +249,9 @@
                 return false;
             }
             try {
-                const date = sv.departure_date;
+                const date = new Date(sv.departure_date);
+                if (isNaN(date.getTime())) return false;
+
                 return (
                     date >= startDate &&
                     date <= endDate &&
@@ -566,6 +571,9 @@
             (a, b) => b.date.getTime() - a.date.getTime(),
         );
         animatedFlights = allFlightsForAnimation;
+        console.log(
+            `FlightMap: Prepared ${animatedFlights.length} flights for animation`,
+        );
 
         // Don't draw with opacity here - standard draw
         Object.entries(arrivalPaths).forEach(([flightId, points]) => {
@@ -582,7 +590,11 @@
                 const group = new L.featureGroup(pathLayers);
                 const bounds = group.getBounds();
                 if (bounds.isValid()) {
-                    map.fitBounds(bounds.pad(0.1));
+                    const paddedBounds = bounds.pad(0.1);
+                    map.fitBounds(paddedBounds);
+                    // Limit zoom out to the data bbox
+                    map.setMaxBounds(paddedBounds.pad(0.5)); // Allow a bit of leeway
+                    map.setMinZoom(map.getBoundsZoom(paddedBounds.pad(0.5)));
                 }
             } catch (e) {
                 console.error("FlightMap: Error fitting bounds:", e);
@@ -622,7 +634,7 @@
                 currentFlightIndex = 0;
             }
             showFlightInAnimation(currentFlightIndex);
-        }, 4000);
+        }, 1500); // Speed up to 1.5s per flight
     }
 
     function stopAnimation() {
@@ -658,7 +670,7 @@
         if (index >= animatedFlights.length || !map) return;
 
         const flight = animatedFlights[index];
-        const currentFlightId = flight.flightId;
+        const currentFlightId = String(flight.flightId); // Ensure string
 
         // Update all layers
         const currentSegments = [];
@@ -666,7 +678,9 @@
 
         pathLayers.forEach((layer) => {
             // Check both storage methods just in case
-            const layerFlightId = layer.options.flightId || layer._flightId;
+            const layerFlightId = String(
+                layer.options.flightId || layer._flightId,
+            ); // Ensure string
 
             if (layerFlightId === currentFlightId) {
                 matchingLayers++;
