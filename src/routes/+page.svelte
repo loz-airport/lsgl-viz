@@ -289,31 +289,39 @@
 
     @media (max-width: 768px) {
         header {
-            padding: 16px 20px;
-        }
-
-        main {
-            padding: 20px;
+            padding: 16px;
         }
 
         .banner {
-            height: 70px;
+            height: 60px;
         }
 
         h1 {
-            font-size: 24px;
+            font-size: 20px;
         }
 
-        .airport-image {
-            max-width: 100%;
+        main {
+            padding: 16px;
         }
 
         .intro-text {
             padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .intro-text h2 {
+            font-size: 18px;
         }
 
         .intro-text p {
-            font-size: 14px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .charts {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
     }
 

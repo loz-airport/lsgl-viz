@@ -82,59 +82,12 @@
 
     const dateRangeOptions = $derived(getDateRangeOptions());
 
-    function handleDateRangeChange() {
-        console.log("Date range changed:", selectedDateRange);
-        const option = dateRangeOptions.find(
-            (opt) => opt.value === selectedDateRange,
-        );
-        if (!option) return;
-
-        // Stop animation when changing range
-        stopAnimation();
-
-        if (option.startDate && option.endDate) {
-            // Date range (week)
-            mapDateRangeDays = null;
-            mapDateRangeStart = option.startDate;
-            mapDateRangeEnd = option.endDate;
-        } else {
-            // Number of days
-            mapDateRangeDays = option.days || 7;
-            mapDateRangeStart = null;
-            mapDateRangeEnd = null;
-        }
-    }
-
-    $effect(() => {
-        // React ONLY to selectedDateRange changes
-        const currentRange = selectedDateRange;
-        // Don't track dateRangeOptions here if possible
-        untrack(() => {
-            const option = dateRangeOptions.find(
-                (opt) => opt.value === currentRange,
-            );
-            if (option) {
-                console.log("Date range effect triggered, stopping animation");
-                stopAnimation();
-                if (option.startDate && option.endDate) {
-                    mapDateRangeDays = null;
-                    mapDateRangeStart = option.startDate;
-                    mapDateRangeEnd = option.endDate;
-                } else {
-                    mapDateRangeDays = option.days || 7;
-                    mapDateRangeStart = null;
-                    mapDateRangeEnd = null;
-                }
-            }
-        });
-    });
-
     /** @type {HTMLDivElement} */
     let mapContainer = $state();
     /** @type {any} */
     let map;
-    /** @type {Array<any>} */
-    let pathLayers = [];
+    /** @type {any} */
+    let flightsLayerGroup; // Optimized layer management
 
     // LSGL coordinates
     const LSGL_LAT = 46.545;
@@ -153,19 +106,45 @@
     // Derived value to force reactivity
     const shouldShowPanel = $derived(isAnimating && flightInfoPanel !== null);
 
+    // Handle dropdown selection manually to avoid reactivity loops
+    function handleDateChange(event) {
+        const newValue = event.target.value;
+        selectedDateRange = newValue; // Update bound state manually if needed, or just let the select do it
+
+        const option = dateRangeOptions.find((opt) => opt.value === newValue);
+
+        if (option) {
+            console.log("Date range changed manually:", newValue);
+            stopAnimation();
+
+            // Update local state that updateFlightPaths depends on
+            if (option.startDate && option.endDate) {
+                mapDateRangeDays = null;
+                mapDateRangeStart = option.startDate;
+                mapDateRangeEnd = option.endDate;
+            } else {
+                mapDateRangeDays = option.days || 7;
+                mapDateRangeStart = null;
+                mapDateRangeEnd = null;
+            }
+
+            // Also call update mapping immediately to be sure
+            if (map) {
+                updateFlightPaths();
+            }
+        }
+    }
     $effect(() => {
-        // React to changes in state vectors and local date range (not store)
-        // Debounce to avoid excessive re-renders
+        // React ONLY to changes in state vectors (data updates)
+        // Date range changes are now handled manually by handleDateChange
         if (
             map &&
-            (arrivalStateVectors.length > 0 ||
-                departureStateVectors.length > 0 ||
-                mapDateRangeDays !== undefined ||
-                mapDateRangeStart !== null ||
-                mapDateRangeEnd !== null)
+            (arrivalStateVectors.length > 0 || departureStateVectors.length > 0)
         ) {
+            // Debounce data updates
             clearTimeout(map._updateTimeout);
             map._updateTimeout = setTimeout(() => {
+                // Only update if we haven't just done it manually (optional check, but good practice)
                 updateFlightPaths();
             }, 200);
         }
@@ -183,6 +162,7 @@
                 center: [LSGL_LAT, LSGL_LON],
                 zoom: 9,
                 zoomControl: true,
+                preferCanvas: true, // Critical for performance with many paths
             });
 
             // Dark mode tile layer
@@ -206,6 +186,9 @@
             L.marker([LSGL_LAT, LSGL_LON], { icon: airportIcon })
                 .addTo(map)
                 .bindPopup("<strong>LSGL</strong><br>Lausanne-Blécherette");
+
+            // Initialize optimized layer group
+            flightsLayerGroup = L.layerGroup().addTo(map);
         } catch (e) {
             console.error("Leaflet initialization failed:", e);
         }
@@ -226,9 +209,10 @@
 
         // Don't return early - we still want to show the map even if there's no data
 
-        // Clear existing paths
-        pathLayers.forEach((layer) => map.removeLayer(layer));
-        pathLayers = [];
+        // Clear existing paths using optimized LayerGroup
+        if (flightsLayerGroup) {
+            flightsLayerGroup.clearLayers();
+        }
 
         // Calculate date range from local state (not store)
         let startDate, endDate;
@@ -246,6 +230,10 @@
             startDate.setDate(startDate.getDate() - (mapDateRangeDays || 7));
             startDate.setHours(0, 0, 0, 0);
         }
+
+        console.log(
+            `FlightMap: Filter range: ${startDate.toISOString()} to ${endDate.toISOString()}`,
+        );
 
         // Filter state vectors by date range
         const filteredArrivals = arrivalsRaw.filter((sv) => {
@@ -297,47 +285,27 @@
                 return false;
             }
         });
+        console.log(
+            `FlightMap: Filtered to ${filteredArrivals.length} arrival SVs and ${filteredDepartures.length} departure SVs`,
+        );
 
         // Group by flight ID and limit points per flight for performance
         const arrivalPaths = groupByFlightId(filteredArrivals);
         const departurePaths = groupByFlightId(filteredDepartures);
+        console.log(
+            `FlightMap: Found ${Object.keys(arrivalPaths).length} arrival flights and ${Object.keys(departurePaths).length} departure flights`,
+        );
 
-        // Limit the number of points per flight path for performance
-        const maxPointsPerFlight = 20;
-        Object.keys(arrivalPaths).forEach((flightId) => {
-            if (arrivalPaths[flightId].length > maxPointsPerFlight) {
-                // Keep first and last points, and sample intermediate points
-                const points = arrivalPaths[flightId];
-                const sampled = [points[0]]; // First point
-                const step = Math.floor(
-                    (points.length - 2) / (maxPointsPerFlight - 2),
-                );
-                for (let i = 1; i < points.length - 1; i += step) {
-                    if (sampled.length < maxPointsPerFlight - 1) {
-                        sampled.push(points[i]);
-                    }
-                }
-                sampled.push(points[points.length - 1]); // Last point
-                arrivalPaths[flightId] = sampled;
-            }
-        });
+        // Limit the number of points per flight path (Performance Optimized)
+        const maxPointsPerFlight = 40;
 
-        Object.keys(departurePaths).forEach((flightId) => {
-            if (departurePaths[flightId].length > maxPointsPerFlight) {
-                const points = departurePaths[flightId];
-                const sampled = [points[0]];
-                const step = Math.floor(
-                    (points.length - 2) / (maxPointsPerFlight - 2),
-                );
-                for (let i = 1; i < points.length - 1; i += step) {
-                    if (sampled.length < maxPointsPerFlight - 1) {
-                        sampled.push(points[i]);
-                    }
-                }
-                sampled.push(points[points.length - 1]);
-                departurePaths[flightId] = sampled;
-            }
-        });
+        // HARD LIMIT on total visible flights to prevent browser freezing
+        // Sort keys by some criteria if possible, or just limit arbitrarily but consistently
+        // Realistically we want the LATEST flights.
+        // The grouped objects are not sorted by date, they are just dicts.
+        // We'll process them, verify dates, and take the top 500 newest.
+
+        let flightsToDraw = [];
 
         // Helper to get flight info and metadata for a flight ID
         const getFlightInfo = (flightId, isArrival) => {
@@ -345,7 +313,10 @@
                 ? flightStore.arrivalsData
                 : flightStore.departuresData;
             const flight = flights.find(
-                (f) => f.id === flightId || f.ICAO24 === flightId,
+                (f) =>
+                    f.id === flightId ||
+                    f.ICAO24 === flightId ||
+                    String(f.flightId) === String(flightId),
             );
             if (!flight) return null;
 
@@ -365,7 +336,7 @@
             return { flight, metadata: metadata || null };
         };
 
-        // Function to create popup content
+        // Function to create popup content with early return for invalid data
         const createPopupContent = (flightInfo, isArrival) => {
             if (!flightInfo) return "Informations non disponibles";
 
@@ -462,100 +433,174 @@
             html += `</div>`;
             return html;
         };
-
-        // Function to draw multi-segment colored paths based on altitude
+        // Function to draw a single polyline
+        // for the flight path (Performance Optimized)
         const drawPath = (pathPoints, baseColor, flightId, isArrival) => {
             if (pathPoints.length < 2) return;
 
             const flightInfo = getFlightInfo(flightId, isArrival);
             const popupContent = createPopupContent(flightInfo, isArrival);
 
-            // Create a feature group for this path to attach popup and handle hover
-            const pathSegments = [];
-            let popup = null;
+            // Calculate average altitude for the whole path for styling
+            let totalAlt = 0;
+            let validAltPoints = 0;
+            pathPoints.forEach((p) => {
+                if (p.altitude !== null && !isNaN(p.altitude)) {
+                    totalAlt += p.altitude;
+                    validAltPoints++;
+                }
+            });
+            const avgAlt =
+                validAltPoints > 0 ? totalAlt / validAltPoints : 1000;
+            const logAlt = Math.log10(Math.max(10, avgAlt));
 
-            // Draw as multiple segments to have varying width/opacity per altitude
-            for (let i = 0; i < pathPoints.length - 1; i++) {
-                const p1 = pathPoints[i];
-                const p2 = pathPoints[i + 1];
+            // Optimized thin style: higher altitude = thinner & more transparent
+            const weight = Math.max(0.5, 3 - logAlt * 0.7);
+            const opacity = Math.max(0.2, 0.8 - logAlt / 8);
 
-                const avgAlt = Math.max(
-                    1,
-                    ((p1.altitude || 0) + (p2.altitude || 0)) / 2,
-                );
-                const logAlt = Math.log10(avgAlt);
+            // Create KEY performance improvement: ONE polyline per flight
+            const latLngs = pathPoints.map((p) => [p.latitude, p.longitude]);
 
-                const weight = Math.max(0.3, 3 - logAlt * 0.6);
-                const opacity = Math.max(0.2, 1 - logAlt / 5);
+            const polyline = L.polyline(latLngs, {
+                color: baseColor,
+                weight: weight,
+                opacity: opacity,
+                smoothFactor: 1.5, // Aggressive smoothing for performance
+                flightId: flightId,
+                flightId: flightId,
+            }).addTo(flightsLayerGroup); // Add to optimized group
 
-                const polyline = L.polyline(
-                    [
-                        [p1.latitude, p1.longitude],
-                        [p2.latitude, p2.longitude],
-                    ],
-                    {
-                        color: baseColor,
-                        weight: weight,
-                        opacity: opacity,
-                        smoothFactor: 1,
-                        flightId: flightId, // Store flightID
-                    },
-                ).addTo(map);
+            // Store original style for animation reset
+            polyline._originalWeight = weight;
+            polyline._originalOpacity = opacity;
+            polyline._flightId = flightId;
 
-                // Store original style params for animation reset
-                polyline._originalWeight = weight;
-                polyline._originalOpacity = opacity;
-                polyline._flightId = flightId; // Backup
+            // Efficient Hover Effect
+            polyline.on("mouseover", function (e) {
+                if (isAnimating) return;
 
-                pathSegments.push(polyline);
-                pathLayers.push(polyline);
-            }
+                this.setStyle({
+                    weight: Math.max(2, this._originalWeight * 2),
+                    opacity: 1,
+                });
+                this.bringToFront();
 
-            // Attach popup and hover effects to all segments
-            if (pathSegments.length > 0 && flightInfo) {
-                // Create popup
-                popup = L.popup({ maxWidth: 350, className: "flight-popup" });
+                if (popupContent) {
+                    L.popup({ maxWidth: 350, className: "flight-popup" })
+                        .setLatLng(e.latlng)
+                        .setContent(popupContent)
+                        .openOn(map);
+                }
+            });
 
-                // Add hover effects - ONLY if not animating
-                pathSegments.forEach((segment, idx) => {
-                    segment.on("mouseover", function (e) {
-                        if (isAnimating) return; // Disable hover during animation
+            polyline.on("mouseout", function () {
+                if (isAnimating) return;
 
-                        // Highlight all segments of this path
-                        pathSegments.forEach((s, i) => {
-                            s.setStyle({
-                                weight: s._originalWeight * 2.5,
-                                opacity: Math.min(1, s._originalOpacity * 2),
-                            });
-                        });
+                this.setStyle({
+                    weight: this._originalWeight,
+                    opacity: this._originalOpacity,
+                });
+                map.closePopup();
+            });
 
-                        // Show popup
-                        if (popup) {
-                            popup.setContent(popupContent);
-                            popup.setLatLng(e.latlng);
-                            popup.openOn(map);
+            // pathLayers.push(polyline); // Deprecated
+        };
+
+        Object.keys(arrivalPaths).forEach((flightId) => {
+            if (arrivalPaths[flightId].length > 0) {
+                // Downsample points
+                if (arrivalPaths[flightId].length > maxPointsPerFlight) {
+                    const points = arrivalPaths[flightId];
+                    const sampled = [points[0]];
+                    const step = (points.length - 2) / (maxPointsPerFlight - 2);
+                    for (let i = 1; i < maxPointsPerFlight - 1; i++) {
+                        const idx = Math.floor(i * step);
+                        if (idx < points.length - 1) {
+                            sampled.push(points[idx]);
                         }
-                    });
+                    }
+                    sampled.push(points[points.length - 1]);
+                    arrivalPaths[flightId] = sampled;
+                }
 
-                    segment.on("mouseout", function () {
-                        if (isAnimating) return;
+                const points = arrivalPaths[flightId];
+                // Get date for sorting
+                const flightInfo = getFlightInfo(flightId, true);
+                const date =
+                    flightInfo?.flight?.arrival_date ||
+                    flightInfo?.flight?.arrival_time ||
+                    new Date(0);
 
-                        // Restore original style
-                        pathSegments.forEach((s, i) => {
-                            s.setStyle({
-                                weight: s._originalWeight,
-                                opacity: s._originalOpacity,
-                            });
-                        });
-
-                        // Close popup
-                        if (popup) {
-                            map.closePopup(popup);
-                        }
-                    });
+                flightsToDraw.push({
+                    id: flightId,
+                    points: points,
+                    isArrival: true,
+                    date: date,
                 });
             }
-        };
+        });
+
+        Object.keys(departurePaths).forEach((flightId) => {
+            if (departurePaths[flightId].length > 0) {
+                // Downsample points
+                if (departurePaths[flightId].length > maxPointsPerFlight) {
+                    const points = departurePaths[flightId];
+                    const sampled = [points[0]];
+                    const step = (points.length - 2) / (maxPointsPerFlight - 2);
+                    for (let i = 1; i < maxPointsPerFlight - 1; i++) {
+                        const idx = Math.floor(i * step);
+                        if (idx < points.length - 1) {
+                            sampled.push(points[idx]);
+                        }
+                    }
+                    sampled.push(points[points.length - 1]);
+                    departurePaths[flightId] = sampled;
+                }
+
+                const points = departurePaths[flightId];
+                // Get sorting date
+                const flightInfo = getFlightInfo(flightId, false);
+                const date =
+                    flightInfo?.flight?.departure_date ||
+                    flightInfo?.flight?.departure_time ||
+                    new Date(0);
+
+                flightsToDraw.push({
+                    id: flightId,
+                    points: points,
+                    isArrival: false,
+                    date: date,
+                });
+            }
+        });
+
+        // Sort by date descending (newest first)
+        flightsToDraw.sort((a, b) => {
+            const tA = a.date instanceof Date ? a.date.getTime() : 0;
+            const tB = b.date instanceof Date ? b.date.getTime() : 0;
+            return tB - tA;
+        });
+
+        // LIMIT to 500
+        const MAX_VISIBLE_FLIGHTS = 500;
+        if (flightsToDraw.length > MAX_VISIBLE_FLIGHTS) {
+            console.warn(
+                `FlightMap: Capping visible flights to ${MAX_VISIBLE_FLIGHTS} (found ${flightsToDraw.length})`,
+            );
+            flightsToDraw = flightsToDraw.slice(0, MAX_VISIBLE_FLIGHTS);
+        }
+
+        console.log(`FlightMap: Drawing ${flightsToDraw.length} flights`);
+
+        // Draw filtered flights
+        flightsToDraw.forEach((f) => {
+            drawPath(
+                f.points,
+                f.isArrival ? "#60a5fa" : "#fb923c",
+                f.id,
+                f.isArrival,
+            );
+        });
 
         // Prepare flights for animation (sorted by date, newest first, limited for performance)
         const allFlightsForAnimation = [];
@@ -609,19 +654,24 @@
             `FlightMap: Prepared ${animatedFlights.length} flights for animation`,
         );
 
-        // Don't draw with opacity here - standard draw
-        Object.entries(arrivalPaths).forEach(([flightId, points]) => {
-            drawPath(points, "#60a5fa", flightId, true);
-        });
-
-        Object.entries(departurePaths).forEach(([flightId, points]) => {
-            drawPath(points, "#fb923c", flightId, false);
-        });
+        //     Object.entries(arrivalPaths).forEach(([flightId, points]) => {
+        //         drawPath(points, "#60a5fa", flightId, true);
+        //     });
+        //     Object.entries(departurePaths).forEach(([flightId, points]) => {
+        //         drawPath(points, "#fb923c", flightId, false);
+        //     });
+        // }
 
         // Fit map bounds to paths if any exist
-        if (pathLayers.length > 0 && !isAnimating) {
+        if (
+            flightsLayerGroup &&
+            flightsLayerGroup.getLayers().length > 0 &&
+            !isAnimating
+        ) {
             try {
-                const group = new L.featureGroup(pathLayers);
+                // FeatureGroup can calculate bounds, LayerGroup cannot directly without helper
+                // We can create a temporary FeatureGroup
+                const group = L.featureGroup(flightsLayerGroup.getLayers());
                 const bounds = group.getBounds();
                 if (bounds.isValid()) {
                     const paddedBounds = bounds.pad(0.1);
@@ -676,7 +726,7 @@
                 animatedFlights.length,
             );
             showFlightInAnimation(currentFlightIndex);
-        }, 1500); // Speed up to 1.5s per flight
+        }, 3500); // 3.5s per flight (2s longer than 1.5s)
     }
 
     function stopAnimation() {
@@ -690,33 +740,32 @@
         currentFlightIndex = 0;
         flightInfoPanel = null;
 
-        // Reset all layers to original style
-        pathLayers.forEach((layer) => {
-            if (layer.setStyle) {
-                layer.setStyle({
-                    weight: layer._originalWeight || 2,
-                    opacity: layer._originalOpacity || 0.6,
-                });
-            }
-        });
+        // Reset all layers to original style using LayerGroup
+        if (flightsLayerGroup) {
+            flightsLayerGroup.eachLayer((layer) => {
+                if (layer.setStyle) {
+                    layer.setStyle({
+                        weight: layer._originalWeight || 0.5,
+                        opacity: layer._originalOpacity || 0.5,
+                    });
+                }
+            });
 
-        // Fit bounds to all
-        if (pathLayers.length > 0 && map) {
+            // Fit bounds to all
             try {
-                const group = new L.featureGroup(pathLayers);
+                const group = L.featureGroup(flightsLayerGroup.getLayers());
                 const bounds = group.getBounds();
                 if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
             } catch (e) {}
         }
     }
 
-    // Stack trace helper
+    // Stack trace helper - simplified to avoid console clutter
     function console_trace() {
-        try {
-            throw new Error("Animation Stop Trace");
-        } catch (e) {
-            console.log(e.stack);
-        }
+        // Just log the message to avoid the "Error" look in console
+        console.log(
+            "Trace: Animation stopping (dropdown change or manual stop)",
+        );
     }
 
     function showFlightInAnimation(index) {
@@ -749,29 +798,31 @@
         const currentSegments = [];
         let matchingLayers = 0;
 
-        pathLayers.forEach((layer) => {
-            // Check both storage methods just in case
-            const layerFlightId = String(
-                layer.options.flightId || layer._flightId,
-            ); // Ensure string
+        if (flightsLayerGroup) {
+            flightsLayerGroup.eachLayer((layer) => {
+                // Check both storage methods just in case
+                const layerFlightId = String(
+                    layer.options.flightId || layer._flightId,
+                ); // Ensure string
 
-            if (layerFlightId === currentFlightId) {
-                matchingLayers++;
-                // Highlight current
-                layer.setStyle({
-                    weight: Math.max(3, layer._originalWeight * 3),
-                    opacity: 1, // Fully opaque
-                });
-                layer.bringToFront();
-                currentSegments.push(layer);
-            } else {
-                // Dim others
-                layer.setStyle({
-                    weight: 1,
-                    opacity: 0.05, // Very transparent (ghosts)
-                });
-            }
-        });
+                if (layerFlightId === currentFlightId) {
+                    matchingLayers++;
+                    // Highlight current
+                    layer.setStyle({
+                        weight: Math.max(3, layer._originalWeight * 3),
+                        opacity: 1, // Fully opaque
+                    });
+                    layer.bringToFront();
+                    currentSegments.push(layer);
+                } else {
+                    // Dim others
+                    layer.setStyle({
+                        weight: 1,
+                        opacity: 0.05, // Very transparent (ghosts)
+                    });
+                }
+            });
+        }
 
         console.log(
             "Matched",
@@ -898,7 +949,8 @@
             <label class="date-selector-label">
                 Période:
                 <select
-                    bind:value={selectedDateRange}
+                    value={selectedDateRange}
+                    onchange={handleDateChange}
                     class="date-selector"
                     style="cursor: pointer;"
                 >
@@ -1255,15 +1307,42 @@
     }
 
     .flight-info-panel {
-        width: 320px;
+        width: 280px;
         background: rgba(15, 23, 42, 0.95);
         border-radius: 12px;
-        padding: 20px;
+        padding: 16px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(10px);
         max-height: 600px;
         overflow-y: auto;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    @media (max-width: 1024px) {
+        .map-wrapper {
+            flex-direction: column;
+        }
+
+        .map {
+            height: 400px;
+            order: 1;
+        }
+
+        .flight-info-panel {
+            width: 100%;
+            max-height: 400px;
+            order: 2;
+        }
+
+        .animation-button {
+            margin-left: 0;
+            width: 100%;
+        }
+
+        .map-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
     }
 
     .panel-header {
@@ -1299,15 +1378,15 @@
     }
 
     .icao {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.5);
-        margin-bottom: 16px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.4);
+        margin-bottom: 12px;
         font-family: monospace;
     }
 
     .info-section {
-        margin-bottom: 16px;
-        padding-bottom: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
