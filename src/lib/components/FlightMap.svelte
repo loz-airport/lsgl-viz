@@ -443,8 +443,11 @@
                 if (isValidValue(metadata.origin_country)) {
                     html += `<div style="margin-bottom: 4px;"><strong>Pays:</strong> ${metadata.origin_country}</div>`;
                 }
-                if (isValidValue(metadata.photo_url)) {
-                    html += `<div style="margin-top: 8px;"><img src="${metadata.photo_url}" alt="Aircraft" style="max-width: 100%; border-radius: 4px;" onerror="this.style.display='none';" /></div>`;
+                if (
+                    isValidValue(metadata.photo_url) &&
+                    metadata.photo_url !== "NA"
+                ) {
+                    html += `<div style="margin-top: 8px;"><img src="${metadata.photo_url}" alt="Aircraft" style="max-width: 100%; border-radius: 4px;" onerror="this.style.display='none'; this.parentElement.style.display='none';" /></div>`;
                 }
                 html += `</div>`;
             }
@@ -891,6 +894,11 @@
                                     originInfo.name !== "NA"
                                         ? originInfo.name
                                         : originCode}
+                                    {#if originInfo?.country && originInfo.country !== "NA"}
+                                        <div class="sub-info">
+                                            {originInfo.country}
+                                        </div>
+                                    {/if}
                                 </div>
                             {:else}
                                 <div class="info-item">
@@ -899,12 +907,7 @@
                             {/if}
                             {#if flightInfoPanel.flight.arrival_time}
                                 <div class="info-item">
-                                    {new Intl.DateTimeFormat("fr-CH", {
-                                        day: "numeric",
-                                        month: "short",
-                                    }).format(
-                                        flightInfoPanel.flight.arrival_time,
-                                    )}
+                                    <strong>Heure:</strong>
                                     {flightInfoPanel.flight.arrival_time.toLocaleTimeString(
                                         "fr-CH",
                                         { hour: "2-digit", minute: "2-digit" },
@@ -922,6 +925,11 @@
                                     {destInfo?.name && destInfo.name !== "NA"
                                         ? destInfo.name
                                         : destCode}
+                                    {#if destInfo?.country && destInfo.country !== "NA"}
+                                        <div class="sub-info">
+                                            {destInfo.country}
+                                        </div>
+                                    {/if}
                                 </div>
                             {:else}
                                 <div class="info-item">
@@ -930,12 +938,7 @@
                             {/if}
                             {#if flightInfoPanel.flight.departure_time}
                                 <div class="info-item">
-                                    {new Intl.DateTimeFormat("fr-CH", {
-                                        day: "numeric",
-                                        month: "short",
-                                    }).format(
-                                        flightInfoPanel.flight.departure_time,
-                                    )}
+                                    <strong>Heure:</strong>
                                     {flightInfoPanel.flight.departure_time.toLocaleTimeString(
                                         "fr-CH",
                                         { hour: "2-digit", minute: "2-digit" },
@@ -962,26 +965,29 @@
 
                     {#if flightInfoPanel.metadata}
                         <div class="metadata-section">
-                            {#if flightInfoPanel.metadata.model}
+                            {#if isValidValue(flightInfoPanel.metadata.model)}
                                 <div class="info-item">
                                     <strong>Modèle:</strong>
                                     {flightInfoPanel.metadata.model}
                                 </div>
                             {/if}
-                            {#if flightInfoPanel.metadata.origin_country}
+                            {#if isValidValue(flightInfoPanel.metadata.origin_country)}
                                 <div class="info-item">
                                     <strong>Pays:</strong>
                                     {flightInfoPanel.metadata.origin_country}
                                 </div>
                             {/if}
                         </div>
-                        {#if flightInfoPanel.metadata.photo_url}
+                        {#if isValidValue(flightInfoPanel.metadata.photo_url) && flightInfoPanel.metadata.photo_url !== "NA"}
                             <div class="photo-container">
                                 <img
                                     src={flightInfoPanel.metadata.photo_url}
                                     alt="Avion"
-                                    onerror={(e) =>
-                                        (e.target.style.display = "none")}
+                                    onerror={(e) => {
+                                        e.target.style.display = "none";
+                                        e.target.parentElement.style.display =
+                                            "none";
+                                    }}
                                 />
                             </div>
                         {/if}
@@ -1177,9 +1183,15 @@
     }
 
     .info-item {
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         font-size: 14px;
         color: rgba(255, 255, 255, 0.9);
+    }
+
+    .sub-info {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        margin-top: 2px;
     }
 
     .photo-container {
