@@ -206,10 +206,10 @@
                 },
                 color: {
                     domain: ["arrival", "departure"],
-                    range: ["#f87171", "#22d3ee"],
+                    range: ["#3b82f6", "#f97316"],
                     tickFormat: (d) =>
                         d === "arrival" ? "Atterrissages" : "Décollages",
-                    legend: true,
+                    legend: false, // Use custom legend
                 },
                 symbol: {
                     domain: ["arrival", "departure"],
@@ -323,9 +323,20 @@
     <div class="header">
         <div>
             <h2>Horaires des vols</h2>
-            <p class="subtitle">
-                ▲ Décollages · ▼ Atterrissages · Lignes courbes = Escales
-            </p>
+            <div class="custom-legend">
+                <div class="legend-item">
+                    <span class="symbol-marker departure">▲</span>
+                    <span class="label">Décollages</span>
+                </div>
+                <div class="legend-item">
+                    <span class="symbol-marker arrival">▼</span>
+                    <span class="label">Atterrissages</span>
+                </div>
+                <div class="legend-item">
+                    <span class="line-marker"></span>
+                    <span class="label">Escales / Boucles</span>
+                </div>
+            </div>
         </div>
         <div class="toggle">
             <button
@@ -535,9 +546,44 @@
     }
 
     .subtitle {
-        margin: 0;
-        font-size: 14px;
-        color: rgba(255, 255, 255, 0.6);
+        display: none; /* Replaced by custom-legend */
+    }
+
+    .custom-legend {
+        display: flex;
+        gap: 16px;
+        margin-top: 4px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .symbol-marker {
+        font-size: 12px;
+        line-height: 1;
+    }
+
+    .symbol-marker.departure {
+        color: #f97316;
+    }
+
+    .symbol-marker.arrival {
+        color: #3b82f6;
+    }
+
+    .line-marker {
+        width: 20px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 1px;
+    }
+
+    .legend-item .label {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.7);
     }
 
     .toggle {
@@ -647,12 +693,13 @@
         font-weight: 700;
         padding: 2px 8px;
         border-radius: 4px;
-        background: #22d3ee; /* Cyan for Departure */
+        background: #f97316; /* Orange for Departure */
+        color: white;
         text-transform: uppercase;
     }
 
     .type-badge.arrival {
-        background: #f87171; /* Red for Arrival */
+        background: #3b82f6; /* Blue for Arrival */
     }
 
     .time {
