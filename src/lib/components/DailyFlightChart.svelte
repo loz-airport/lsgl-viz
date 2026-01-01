@@ -210,9 +210,13 @@
 		}
 	}
 
-	onMount(() => {
-		if (data.length > 0) renderChart();
+	$effect(() => {
+		if (data.length > 0 && container) {
+			renderChart();
+		}
+	});
 
+	onMount(() => {
 		const handleMouseMove = (e) => {
 			tooltipPos = { x: e.clientX, y: e.clientY };
 		};

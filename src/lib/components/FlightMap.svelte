@@ -106,7 +106,23 @@
     }
 
     $effect(() => {
-        handleDateRangeChange();
+        // React to selectedDateRange changes
+        const currentRange = selectedDateRange;
+        const options = dateRangeOptions;
+        const option = options.find((opt) => opt.value === currentRange);
+
+        if (option) {
+            stopAnimation();
+            if (option.startDate && option.endDate) {
+                mapDateRangeDays = null;
+                mapDateRangeStart = option.startDate;
+                mapDateRangeEnd = option.endDate;
+            } else {
+                mapDateRangeDays = option.days || 7;
+                mapDateRangeStart = null;
+                mapDateRangeEnd = null;
+            }
+        }
     });
 
     /** @type {HTMLDivElement} */
@@ -363,37 +379,45 @@
             }
 
             // Airports using metadata from store
-            const originCode =
-                flight.origin ||
-                flight.departure_airport ||
-                flight.estDepartureAirport;
-            const destCode =
-                flight.destination ||
-                flight.arrival_airport ||
-                flight.estArrivalAirport;
+            const originCode = flight.departure_airport_ICAO;
+            const destCode = flight.destination_airport_ICAO;
 
             const originInfo = flightStore.getAirportInfo(originCode);
             const destInfo = flightStore.getAirportInfo(destCode);
 
             if (isArrival) {
-                if (isValidValue(originCode)) {
-                    const name = originInfo?.name
-                        ? `${originInfo.name} (${originCode})`
-                        : originCode;
+                if (
+                    isValidValue(originCode) &&
+                    originCode !== "LSGL" &&
+                    originCode !== "NA"
+                ) {
+                    const name =
+                        originInfo?.name && originInfo.name !== "NA"
+                            ? `${originInfo.name} (${originCode})`
+                            : originCode;
                     html += `<div style="margin-bottom: 4px;"><strong>Provenance:</strong> ${name}</div>`;
-                    if (originInfo?.country) {
+                    if (originInfo?.country && originInfo.country !== "NA") {
                         html += `<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">${originInfo.country}</div>`;
                     }
+                } else {
+                    html += `<div style="margin-bottom: 4px;"><strong>Provenance:</strong> Local (LSGL)</div>`;
                 }
             } else {
-                if (isValidValue(destCode)) {
-                    const name = destInfo?.name
-                        ? `${destInfo.name} (${destCode})`
-                        : destCode;
+                if (
+                    isValidValue(destCode) &&
+                    destCode !== "LSGL" &&
+                    destCode !== "NA"
+                ) {
+                    const name =
+                        destInfo?.name && destInfo.name !== "NA"
+                            ? `${destInfo.name} (${destCode})`
+                            : destCode;
                     html += `<div style="margin-bottom: 4px;"><strong>Destination:</strong> ${name}</div>`;
-                    if (destInfo?.country) {
+                    if (destInfo?.country && destInfo.country !== "NA") {
                         html += `<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">${destInfo.country}</div>`;
                     }
+                } else {
+                    html += `<div style="margin-bottom: 4px;"><strong>Destination:</strong> Local (LSGL)</div>`;
                 }
             }
 
@@ -856,12 +880,21 @@
                     {/if}
                     {#if flightInfoPanel.flight}
                         {#if flightInfoPanel.isArrival}
-                            {#if flightInfoPanel.flight.origin || flightInfoPanel.flight.departure_airport}
+                            {@const originCode =
+                                flightInfoPanel.flight.departure_airport_ICAO}
+                            {@const originInfo =
+                                flightStore.getAirportInfo(originCode)}
+                            {#if originCode && originCode !== "LSGL" && originCode !== "NA"}
                                 <div class="info-item">
                                     <strong>Provenance:</strong>
-                                    {flightInfoPanel.flight.origin ||
-                                        flightInfoPanel.flight
-                                            .departure_airport}
+                                    {originInfo?.name &&
+                                    originInfo.name !== "NA"
+                                        ? originInfo.name
+                                        : originCode}
+                                </div>
+                            {:else}
+                                <div class="info-item">
+                                    <strong>Provenance:</strong> Local (LSGL)
                                 </div>
                             {/if}
                             {#if flightInfoPanel.flight.arrival_time}
@@ -879,11 +912,20 @@
                                 </div>
                             {/if}
                         {:else}
-                            {#if flightInfoPanel.flight.destination || flightInfoPanel.flight.arrival_airport}
+                            {@const destCode =
+                                flightInfoPanel.flight.destination_airport_ICAO}
+                            {@const destInfo =
+                                flightStore.getAirportInfo(destCode)}
+                            {#if destCode && destCode !== "LSGL" && destCode !== "NA"}
                                 <div class="info-item">
                                     <strong>Destination:</strong>
-                                    {flightInfoPanel.flight.destination ||
-                                        flightInfoPanel.flight.arrival_airport}
+                                    {destInfo?.name && destInfo.name !== "NA"
+                                        ? destInfo.name
+                                        : destCode}
+                                </div>
+                            {:else}
+                                <div class="info-item">
+                                    <strong>Destination:</strong> Local (LSGL)
                                 </div>
                             {/if}
                             {#if flightInfoPanel.flight.departure_time}

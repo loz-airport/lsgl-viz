@@ -99,17 +99,25 @@
 
                 const hours = time.getHours() + time.getMinutes() / 60;
 
-                // Get airport code from CSV headers: departure_airport_ICAO or destination_airport_ICAO
+                // Get airport code from CSV headers
+                const originCode = flight.departure_airport_ICAO;
+                const destCode = flight.destination_airport_ICAO;
+
+                // For the marker position, we use the airport that ISN'T LSGL, unless it's a loop
                 const airportCode =
-                    flight.flight_type === "arrival"
-                        ? flight.departure_airport_ICAO
-                        : flight.destination_airport_ICAO;
+                    originCode === "LSGL" && destCode === "LSGL"
+                        ? "LSGL"
+                        : flight.flight_type === "arrival"
+                          ? originCode
+                          : destCode;
 
                 const enhancedFlight = {
                     ...flight,
                     date: date,
                     timeOfDay: hours,
-                    airportCode: airportCode,
+                    originCode,
+                    destCode,
+                    airportCode,
                     airportInfo: flightStore.getAirportInfo(airportCode),
                     formattedTime: time.toLocaleTimeString("fr-CH", {
                         hour: "2-digit",
@@ -124,51 +132,46 @@
                     }),
                 };
 
-                // Grouping for connections
-                const key = `${flight.ICAO24}_${date.toISOString().split("T")[0]}`;
-                if (!flightsByAircraftAndDate[key])
-                    flightsByAircraftAndDate[key] = [];
-                flightsByAircraftAndDate[key].push(enhancedFlight);
-
                 return enhancedFlight;
             })
             .filter((d) => d !== null);
 
-        // Build connection segments
+        // Build connection segments for loops only (tour de piste/école)
         const connectionSegments = [];
-        Object.values(flightsByAircraftAndDate).forEach((flights) => {
-            if (flights.length > 1) {
-                // Sort by time
-                flights.sort((a, b) => a.timeOfDay - b.timeOfDay);
-                for (let i = 0; i < flights.length - 1; i++) {
-                    const f1 = flights[i];
-                    const f2 = flights[i + 1];
-                    // Connect Arrival -> Departure (Stopover) or Departure -> Arrival (Training)
-                    if (f1.flight_type !== f2.flight_type) {
-                        const midTime = (f1.timeOfDay + f2.timeOfDay) / 2;
-                        // Offset by ~12 hours to create a visible bow on the time axis
-                        const bowOffset = 1000 * 60 * 60 * 12; // 12 hours in ms
+        chartData.forEach((f) => {
+            // Case 1: Record is a loop flight (departure AND arrival in same row)
+            if (
+                f.originCode === "LSGL" &&
+                f.destCode === "LSGL" &&
+                f.departure_time &&
+                f.arrival_time
+            ) {
+                const t1 =
+                    f.departure_time.getHours() +
+                    f.departure_time.getMinutes() / 60;
+                const t2 =
+                    f.arrival_time.getHours() +
+                    f.arrival_time.getMinutes() / 60;
+                const midTime = (t1 + t2) / 2;
+                const dayDate = f.departure_date;
+                const bowOffset = 1000 * 60 * 60 * 12; // 12h bow to create a visible arc
+                const id = `loop_${f.id || Math.random()}`;
 
-                        const id = Math.random().toString(36).substr(2, 9);
-
-                        // We use a group id for Plot.line
-                        connectionSegments.push({
-                            id,
-                            x: new Date(f1.date.getTime()),
-                            y: f1.timeOfDay,
-                        });
-                        connectionSegments.push({
-                            id,
-                            x: new Date(f1.date.getTime() + bowOffset),
-                            y: midTime,
-                        });
-                        connectionSegments.push({
-                            id,
-                            x: new Date(f2.date.getTime()),
-                            y: f2.timeOfDay,
-                        });
-                    }
-                }
+                connectionSegments.push({
+                    id,
+                    x: new Date(dayDate.getTime()),
+                    y: t1,
+                });
+                connectionSegments.push({
+                    id,
+                    x: new Date(dayDate.getTime() + bowOffset),
+                    y: midTime,
+                });
+                connectionSegments.push({
+                    id,
+                    x: new Date(dayDate.getTime()),
+                    y: t2,
+                });
             }
         });
 
@@ -203,7 +206,9 @@
                 },
                 color: {
                     domain: ["arrival", "departure"],
-                    range: ["#f87171", "#22d3ee"], // Red for arrival (down), Cyan for departure (up)
+                    range: ["#f87171", "#22d3ee"],
+                    tickFormat: (d) =>
+                        d === "arrival" ? "Atterrissages" : "Décollages",
                     legend: true,
                 },
                 symbol: {
@@ -288,13 +293,15 @@
                 ? flight.departure_airport_ICAO
                 : flight.destination_airport_ICAO;
 
-        if (!code || code === "LSGL") return "Local (LSGL)"; // Handle local flights specially
-
-        if (!code) return "Inconnu";
+        if (!code || code === "LSGL" || code === "NA") return "Local (LSGL)";
 
         const info = flightStore.getAirportInfo(code);
-        if (info && info.name) {
-            return `${info.city || info.name}, ${info.country || ""} (${code})`;
+        if (info && info.name && info.name !== "NA") {
+            const city =
+                info.city && info.city !== "NA" ? `${info.city}, ` : "";
+            const country =
+                info.country && info.country !== "NA" ? info.country : "";
+            return `${info.name} (${city}${country})`.replace(", )", ")");
         }
         return code;
     }

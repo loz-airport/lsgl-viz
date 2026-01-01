@@ -114,8 +114,8 @@ class FlightStore {
                 return metaIcao && flightIcao && metaIcao === flightIcao;
             });
             const airportCode = flight.flight_type === 'arrival'
-                ? (flight.origin || flight.departure_airport || flight.estDepartureAirport)
-                : (flight.destination || flight.arrival_airport || flight.estArrivalAirport);
+                ? flight.departure_airport_ICAO
+                : flight.destination_airport_ICAO;
 
             return {
                 ...flight,
