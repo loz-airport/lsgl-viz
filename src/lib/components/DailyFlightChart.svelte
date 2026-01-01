@@ -255,7 +255,7 @@
 	{#if hoveredData}
 		<div
 			class="custom-tooltip"
-			style="left: {tooltipPos.x + 8}px; top: {tooltipPos.y + 8}px;"
+			style="left: {tooltipPos.x + 12}px; top: {tooltipPos.y - 60}px;"
 		>
 			<div class="tooltip-date">
 				{new Intl.DateTimeFormat("fr-CH", {
@@ -302,7 +302,7 @@
 		padding: 10px 14px;
 		color: white;
 		font-size: 13px;
-		z-index: 9999;
+		z-index: 10000;
 		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
 		backdrop-filter: blur(4px);
 	}
