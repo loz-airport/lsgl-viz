@@ -102,7 +102,7 @@
             <h1 class="hero-title">
                 <span class="eyebrow">Aéroport Lausanne-Blécherette</span>
                 <span class="main-title"
-                    >Cap sur la <span class="gradient">Transparence</span></span
+                    >Cap sur la <span class="gradient">transparence</span></span
                 >
             </h1>
             <p class="hero-tagline">
