@@ -105,14 +105,27 @@
         }
     }
 
+    // Consolidate effects to handle initialization and updates correctly
     $effect(() => {
-        // React to selectedDateRange changes
-        const currentRange = selectedDateRange;
-        const options = dateRangeOptions;
-        const option = options.find((opt) => opt.value === currentRange);
+        // Track all dependencies for map update
+        const currentData = {
+            arrivals: arrivalStateVectors,
+            departures: departureStateVectors,
+            range: selectedDateRange,
+            options: dateRangeOptions,
+        };
 
+        if (!map) return;
+
+        // Find selected range details synchronously
+        const option = currentData.options.find(
+            (opt) => opt.value === currentData.range,
+        );
         if (option) {
+            // Stop animation immediately when range changes
             stopAnimation();
+
+            // Update internal range state
             if (option.startDate && option.endDate) {
                 mapDateRangeDays = null;
                 mapDateRangeStart = option.startDate;
@@ -122,6 +135,12 @@
                 mapDateRangeStart = null;
                 mapDateRangeEnd = null;
             }
+
+            // Schedule update
+            clearTimeout(map._updateTimeout);
+            map._updateTimeout = setTimeout(() => {
+                updateFlightPaths();
+            }, 100);
         }
     });
 
@@ -137,15 +156,9 @@
     const LSGL_LON = 6.617;
 
     $effect(() => {
-        // React to changes in state vectors and local date range (not store)
-        // Debounce to avoid excessive re-renders
         if (
             map &&
-            (arrivalStateVectors.length > 0 ||
-                departureStateVectors.length > 0 ||
-                mapDateRangeDays !== undefined ||
-                mapDateRangeStart !== null ||
-                mapDateRangeEnd !== null)
+            (arrivalStateVectors.length > 0 || departureStateVectors.length > 0)
         ) {
             clearTimeout(map._updateTimeout);
             map._updateTimeout = setTimeout(() => {
@@ -200,29 +213,26 @@
             return;
         }
 
-        const arrivalsRaw = $state.snapshot(arrivalStateVectors) || [];
-        const departuresRaw = $state.snapshot(departureStateVectors) || [];
+        // Use local props directly instead of snapshotting for better performance in loops
+        const arrivalsRaw = arrivalStateVectors || [];
+        const departuresRaw = departureStateVectors || [];
 
         console.log(
             `FlightMap: Updating paths with ${arrivalsRaw.length} arrivals and ${departuresRaw.length} departures`,
         );
 
-        // Don't return early - we still want to show the map even if there's no data
-
         // Clear existing paths
-        pathLayers.forEach((layer) => map.removeLayer(layer));
+        pathLayers.forEach((layer) => map?.removeLayer(layer));
         pathLayers = [];
 
-        // Calculate date range from local state (not store)
+        // Calculate date range carefully
         let startDate, endDate;
         if (mapDateRangeStart && mapDateRangeEnd) {
-            // Use provided date range
             startDate = new Date(mapDateRangeStart);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(mapDateRangeEnd);
             endDate.setHours(23, 59, 59, 999);
         } else {
-            // Use number of days
             endDate = new Date();
             endDate.setHours(23, 59, 59, 999);
             startDate = new Date();
@@ -230,55 +240,43 @@
             startDate.setHours(0, 0, 0, 0);
         }
 
+        console.log(
+            `FlightMap: Filtering from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+        );
+
         // Filter state vectors by date range
         const filteredArrivals = arrivalsRaw.filter((sv) => {
-            if (
-                !sv.arrival_date ||
-                !(sv.arrival_date instanceof Date) ||
-                isNaN(sv.arrival_date.getTime())
-            ) {
-                return false;
-            }
-            try {
-                const date = new Date(sv.arrival_date);
-                if (isNaN(date.getTime())) return false;
+            const dateStr = sv.arrival_date || sv.arrival_time;
+            if (!dateStr) return false;
 
-                return (
-                    date >= startDate &&
-                    date <= endDate &&
-                    sv.latitude != null &&
-                    sv.longitude != null &&
-                    !isNaN(sv.latitude) &&
-                    !isNaN(sv.longitude)
-                );
-            } catch (e) {
-                return false;
-            }
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return false;
+
+            return (
+                date >= startDate &&
+                date <= endDate &&
+                sv.latitude != null &&
+                sv.longitude != null &&
+                !isNaN(sv.latitude) &&
+                !isNaN(sv.longitude)
+            );
         });
 
         const filteredDepartures = departuresRaw.filter((sv) => {
-            if (
-                !sv.departure_date ||
-                !(sv.departure_date instanceof Date) ||
-                isNaN(sv.departure_date.getTime())
-            ) {
-                return false;
-            }
-            try {
-                const date = new Date(sv.departure_date);
-                if (isNaN(date.getTime())) return false;
+            const dateStr = sv.departure_date || sv.departure_time;
+            if (!dateStr) return false;
 
-                return (
-                    date >= startDate &&
-                    date <= endDate &&
-                    sv.latitude != null &&
-                    sv.longitude != null &&
-                    !isNaN(sv.latitude) &&
-                    !isNaN(sv.longitude)
-                );
-            } catch (e) {
-                return false;
-            }
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return false;
+
+            return (
+                date >= startDate &&
+                date <= endDate &&
+                sv.latitude != null &&
+                sv.longitude != null &&
+                !isNaN(sv.latitude) &&
+                !isNaN(sv.longitude)
+            );
         });
 
         // Group by flight ID and limit points per flight for performance
