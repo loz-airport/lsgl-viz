@@ -703,7 +703,8 @@
     }
 
     .chart-section.map-full {
-        height: 600px;
+        height: auto;
+        min-height: 700px;
         border-radius: 24px;
         overflow: hidden;
     }
