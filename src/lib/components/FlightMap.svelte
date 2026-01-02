@@ -71,7 +71,7 @@
             if (daysAgoEnd >= daysAgoStart) {
                 options.push({
                     value: `week-${week}`,
-                    label: `7 derniers jours (${formatDateRange(startDate, endDate)})`,
+                    label: formatDateRange(startDate, endDate),
                     startDate,
                     endDate,
                 });
