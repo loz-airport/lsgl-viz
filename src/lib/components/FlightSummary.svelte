@@ -27,7 +27,7 @@
 
         arrivals.forEach((f) => {
             const icao = f.departure_airport_ICAO;
-            if (!icao || icao === "LSGL") return;
+            if (!icao) return;
             if (!counts[icao])
                 counts[icao] = { icao, arrivals: 0, departures: 0, total: 0 };
             counts[icao].arrivals++;
@@ -36,7 +36,7 @@
 
         departures.forEach((f) => {
             const icao = f.destination_airport_ICAO;
-            if (!icao || icao === "LSGL") return;
+            if (!icao) return;
             if (!counts[icao])
                 counts[icao] = { icao, arrivals: 0, departures: 0, total: 0 };
             counts[icao].departures++;
@@ -47,24 +47,30 @@
             .sort((a, b) => b.total - a.total)
             .slice(0, 10)
             .flatMap((d) => {
-                const airportName =
-                    flightStore.getAirportInfo(d.icao)?.name || d.icao;
-                const finalName =
-                    airportName === "NA" || !airportName
-                        ? "Aéroport inconnu"
-                        : airportName;
+                const info = flightStore.getAirportInfo(d.icao);
+                let airportName = info?.name || d.icao;
+                const countryCode = info?.country ? ` (${info.country})` : "";
+
+                if (d.icao === "LSGL") {
+                    airportName = "Lausanne-Blécherette (Boucles)";
+                } else if (airportName === "NA" || !airportName) {
+                    airportName = "Aéroport inconnu";
+                } else {
+                    airportName += countryCode;
+                }
+
                 return [
                     {
                         icao: d.icao,
                         type: "Atterrissages",
                         count: d.arrivals,
-                        name: finalName,
+                        name: airportName,
                     },
                     {
                         icao: d.icao,
                         type: "Décollages",
                         count: d.departures,
-                        name: finalName,
+                        name: airportName,
                     },
                 ];
             });
@@ -133,30 +139,51 @@
         const airportPlot = Plot.plot({
             width: airportsContainer.clientWidth,
             height: 350,
-            marginLeft: 160,
+            marginLeft: 220,
             x: { label: "Nombre de vols", grid: true },
             y: {
                 label: null,
-                domain: [...new Set(topAirports.map((d) => d.name))],
+                domain: [...new Set(topAirports.map((d) => d.icao))],
+                tickFormat: (icao) => {
+                    const entry = topAirports.find((a) => a.icao === icao);
+                    return entry ? entry.name : icao;
+                },
+                tickSize: 0,
             },
             color: {
                 domain: ["Atterrissages", "Décollages"],
                 range: ["#3b82f6", "#f97316"],
             },
             marks: [
-                Plot.barX(topAirports, {
-                    x: "count",
-                    y: "name",
-                    fill: "type",
-                    sort: { y: "x", reverse: true },
-                    inset: 0.5,
-                    title: (d) => `${d.name}\n${d.type}: ${d.count} vols`,
-                }),
-                Plot.ruleX([0]),
+                Plot.barX(
+                    topAirports,
+                    Plot.stackX({
+                        x: "count",
+                        y: "icao",
+                        fill: "type",
+                        insetTop: 0,
+                        insetBottom: 0,
+                        stroke: null,
+                        shapeRendering: "crispEdges",
+                    }),
+                ),
+                Plot.text(
+                    topAirports,
+                    Plot.stackX({
+                        x: "count",
+                        y: "icao",
+                        text: (d) => (d.count > 0 ? d.count : ""),
+                        fill: "white",
+                        fontWeight: "bold",
+                        fontSize: 10,
+                    }),
+                ),
+                Plot.ruleX([0], { strokeOpacity: 0.2 }),
             ],
             style: {
                 background: "transparent",
                 color: "white",
+                fontSize: "11px",
             },
         });
         airportsContainer.appendChild(airportPlot);
@@ -272,6 +299,10 @@
         <div class="chart-card glass">
             <h3>Top 10 aéroports connectés à la Blécherette</h3>
             <div bind:this={airportsContainer} class="chart-container"></div>
+            <p class="chart-footnote">
+                Les vols effectuant une boucle depuis la Blécherette comptent
+                comme 1 décollage + 1 atterrissage
+            </p>
         </div>
 
         <div class="chart-card glass aircraft-card">
@@ -444,6 +475,14 @@
     .chart-container {
         width: 100%;
         min-height: 350px;
+    }
+
+    .chart-footnote {
+        margin-top: 16px;
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.4);
+        text-align: right;
     }
 
     @media (max-width: 768px) {
