@@ -20,7 +20,7 @@
 
 <svelte:head>
     <title
-        >Lausanne-Blécherette (LSGL): Trafic avions, nuisances et statistiques -
+        >Lausanne-Blécherette (LSGL): Trafic avions, statistiques & dataviz -
         Flight Tracker</title
     >
     <meta
