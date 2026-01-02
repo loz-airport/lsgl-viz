@@ -6,10 +6,14 @@
     import FlightMap from "$lib/components/FlightMap.svelte";
     import bannerImage from "$lib/assets/banner_LAT_dark.png";
 
+    let scrollY = $state(0);
+
     onMount(() => {
         flightStore.loadData();
     });
 </script>
+
+<svelte:window bind:scrollY />
 
 <svelte:head>
     <title
@@ -28,7 +32,6 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lsgl-tracker.vercel.app/" />
-    <!-- Placeholder URL, user should update -->
     <meta
         property="og:title"
         content="Lausanne-Blécherette (LSGL): Trafic avions et statistiques"
@@ -60,193 +63,473 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
         rel="stylesheet"
     />
 </svelte:head>
 
 <div class="app">
-    <header>
-        <div class="header-content">
-            <div class="hero-section">
-                <div class="banner-container">
-                    <img
-                        src={bannerImage}
-                        alt="Lausanne-Blécherette Airport"
-                        class="banner"
-                    />
-                </div>
-                <div class="title-section">
-                    <h1>Lausanne-Blécherette Airport Flight Tracker</h1>
-                    <div class="airport-image">
-                        <img
-                            src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
-                            alt="Vue aérienne de l'aérodrome de Lausanne-La Blécherette"
-                            class="aerial-image"
-                            loading="lazy"
-                        />
-                    </div>
-                </div>
+    <nav class="nav-floating" class:scrolled={scrollY > 50}>
+        <div class="nav-content">
+            <img src={bannerImage} alt="Logo" class="nav-logo" />
+            <span class="nav-title">LSGL Tracker</span>
+            <div class="nav-links">
+                <a href="#vols-quotidiens">Statistiques</a>
+                <a href="#map">Carte</a>
+                <a
+                    href="https://github.com/loz-airport/LSGL_tracker"
+                    target="_blank">GitHub</a
+                >
             </div>
         </div>
-    </header>
+    </nav>
 
-    <main>
+    <div class="hero">
+        <div class="hero-bg" style="transform: translateY({scrollY * 0.4}px)">
+            <img
+                src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
+                alt="Lausanne-Blécherette Airport"
+            />
+            <div class="hero-overlay"></div>
+        </div>
+        <div
+            class="hero-content"
+            style="transform: translateY({scrollY * 0.2}px); opacity: {1 -
+                scrollY / 600}"
+        >
+            <h1 class="hero-title">
+                <span class="eyebrow">Aéroport Lausanne-Blécherette</span>
+                <span class="main-title"
+                    >Cap sur la <span class="gradient">Transparence</span></span
+                >
+            </h1>
+            <p class="hero-tagline">
+                Visualisez l'occupation du ciel lausannois avec des données
+                réelles et factuelles.
+            </p>
+            <div class="hero-actions">
+                <a href="#stats" class="btn btn-primary">Explorer les données</a
+                >
+                <a href="#map" class="btn btn-outline">Voir la carte</a>
+            </div>
+        </div>
+        <div class="scroll-indicator" class:hidden={scrollY > 100}>
+            <span>Découvrez</span>
+            <div class="mouse">
+                <div class="wheel"></div>
+            </div>
+        </div>
+    </div>
+
+    <main id="stats">
         {#if flightStore.isLoading}
-            <div class="loading">
+            <div class="loading-state">
                 <div class="spinner"></div>
-                <p>Chargement des données de vol...</p>
+                <p>Récupération des trajectoires...</p>
             </div>
         {:else if flightStore.loadError}
-            <div class="error">
-                <p>❌ Erreur lors du chargement: {flightStore.loadError}</p>
+            <div class="error-state">
+                <p>❌ Erreur de chargement: {flightStore.loadError}</p>
             </div>
         {:else if flightStore.isProcessing}
-            <div class="processing">
+            <div class="loading-state">
                 <div class="spinner"></div>
-                <p>Traitement des données...</p>
+                <p>Traitement des données en cours...</p>
             </div>
         {:else}
-            <div class="intro-text">
-                <h2>Cap sur la transparence</h2>
-                <p>
-                    Avec plus d'une dizaine de mouvements quotidiens, l'activité
-                    de l'aéroport de la Blécherette suscite de nombreuses
-                    questions. Le projet Lausanne Airport Flight Tracker vise à
-                    objectiver ces flux aériens. Ces avions effectuent-ils de
-                    simples boucles d'écolage ou des trajets vers d'autres
-                    destinations ? En récoltant et visualisant les données
-                    réelles de vol, nous offrons aux riverains comme aux
-                    passionnés de l'aéronautique un outil factuel pour observer
-                    l'occupation du ciel lausannois, au-delà des simples
-                    ressentis.
-                </p>
-                <p>
-                    Techniquement, le système s'appuie sur l'API d'OpenSky
-                    Network. Cette base de données communautaire agrège les
-                    signaux ADS-B des aéronefs équipés, assurant une source
-                    fiable et indépendante pour cartographier les vols. Ces
-                    données sont actualisées deux fois par jour et ont un délai
-                    de 24h sur le temps réel.
-                </p>
-            </div>
+            <section class="info-section glass">
+                <div class="info-content">
+                    <h2>Objectiver le trafic aérien</h2>
+                    <p>
+                        L'activité de l'aéroport de la Blécherette suscite de
+                        nombreuses questions. Ce projet vise à offrir aux
+                        riverains comme aux passionnés un outil factuel pour
+                        observer l'occupation du ciel lausannois, au-delà des
+                        simples ressentis.
+                    </p>
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <h3>Indépendant</h3>
+                            <p>
+                                S'appuie sur l'API communautaire OpenSky
+                                Network.
+                            </p>
+                        </div>
+                        <div class="info-card">
+                            <h3>Factuel</h3>
+                            <p>
+                                Visualisation brute des signaux ADS-B des
+                                aéronefs.
+                            </p>
+                        </div>
+                        <div class="info-card">
+                            <h3>Local</h3>
+                            <p>
+                                Focus spécifique sur LSGL et les quartiers
+                                environnants.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-            <div class="charts">
-                <DailyFlightChart data={flightStore.dailyFlightCounts} />
-                <FlightTimesScatter data={flightStore.filteredFlights} />
-                <FlightMap
-                    arrivalStateVectors={flightStore.arrivalStateVectors}
-                    departureStateVectors={flightStore.departureStateVectors}
-                />
+            <div class="dashboard">
+                <div class="chart-section" id="vols-quotidiens">
+                    <DailyFlightChart data={flightStore.dailyFlightCounts} />
+                </div>
+                <div class="chart-section" id="horaires">
+                    <FlightTimesScatter data={flightStore.filteredFlights} />
+                </div>
+                <div class="chart-section map-full" id="map">
+                    <FlightMap
+                        arrivalStateVectors={flightStore.arrivalStateVectors}
+                        departureStateVectors={flightStore.departureStateVectors}
+                    />
+                </div>
             </div>
         {/if}
     </main>
 
     <footer>
-        <p>
-            Données fournies par <a
-                href="https://opensky-network.org"
-                target="_blank"
-                rel="noopener">OpenSky Network</a
-            >
-            ·
-            <a
-                href="https://github.com/loz-airport/LSGL_tracker"
-                target="_blank"
-                rel="noopener">GitHub</a
-            >
-        </p>
+        <div class="footer-content">
+            <p>
+                Données fournies par <a
+                    href="https://opensky-network.org"
+                    target="_blank">OpenSky Network</a
+                >
+            </p>
+            <p>
+                Projet Open Source · <a
+                    href="https://github.com/loz-airport/LSGL_tracker"
+                    target="_blank">GitHub</a
+                >
+            </p>
+        </div>
     </footer>
 </div>
 
 <style>
     .app {
         min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+        background: #0f172a;
     }
 
-    header {
-        background: rgba(0, 0, 0, 0.3);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 24px 32px;
+    /* Floating Navigation */
+    .nav-floating {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        padding: 16px 32px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: transparent;
+    }
+
+    .nav-floating.scrolled {
+        background: rgba(15, 23, 42, 0.8);
         backdrop-filter: blur(20px);
+        padding: 12px 32px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
     }
 
-    .header-content {
+    .nav-content {
         max-width: 1400px;
         margin: 0 auto;
-    }
-
-    .hero-section {
         display: flex;
-        flex-direction: column;
-        gap: 24px;
-    }
-
-    .banner-container {
-        display: flex;
-        justify-content: center;
         align-items: center;
-        padding: 16px 0;
+        gap: 16px;
     }
 
-    .banner {
-        height: 200px;
+    .nav-logo {
+        height: 32px;
         width: auto;
-        max-width: 100%;
-        object-fit: contain;
     }
 
-    .title-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-    }
-
-    h1 {
-        margin: 0;
-        font-size: 32px;
+    .nav-title {
+        font-family: "Outfit", sans-serif;
         font-weight: 700;
-        background: linear-gradient(135deg, #60a5fa, #f97316);
+        letter-spacing: -0.5px;
+        font-size: 18px;
+        background: linear-gradient(135deg, #fff, #94a3b8);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
-        text-align: center;
     }
 
-    .airport-image {
+    .nav-links {
+        margin-left: auto;
+        display: flex;
+        gap: 32px;
+    }
+
+    .nav-links a {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.2s;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .nav-links a:hover {
+        color: #fff;
+    }
+
+    /* Hero Section */
+    .hero {
+        position: relative;
+        height: 100vh;
         width: 100%;
-        max-width: 800px;
-        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        margin-bottom: 80px;
     }
 
-    .aerial-image {
+    .hero-bg {
+        position: absolute;
+        top: -10%;
+        left: 0;
         width: 100%;
-        height: auto;
-        display: block;
+        height: 120%;
+        z-index: 1;
+        will-change: transform;
+    }
+
+    .hero-bg img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
     }
 
-    main {
-        flex: 1;
-        padding: 32px;
-        max-width: 1400px;
-        width: 100%;
-        margin: 0 auto;
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+            circle at center,
+            rgba(15, 23, 42, 0.4) 0%,
+            rgba(15, 23, 42, 0.9) 100%
+        );
+        z-index: 2;
     }
 
-    .loading,
-    .error,
-    .processing {
+    .hero-content {
+        position: relative;
+        z-index: 10;
+        max-width: 800px;
+        text-align: center;
+        padding: 0 32px;
+        will-change: transform, opacity;
+    }
+
+    .hero-title {
+        margin-bottom: 24px;
+    }
+
+    .eyebrow {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        color: #60a5fa;
+        margin-bottom: 12px;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .main-title {
+        display: block;
+        font-size: clamp(48px, 8vw, 84px);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -3px;
+        font-family: "Outfit", sans-serif;
+        color: #fff;
+    }
+
+    .gradient {
+        background: linear-gradient(135deg, #60a5fa, #f97316);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero-tagline {
+        font-size: clamp(16px, 2vw, 20px);
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 40px;
+        max-width: 600px;
+        margin-inline: auto;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+    }
+
+    .btn {
+        padding: 14px 28px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 16px;
+        text-decoration: none;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-family: "Outfit", sans-serif;
+    }
+
+    .btn-primary {
+        background: #fff;
+        color: #0f172a;
+        box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-outline {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        backdrop-filter: blur(10px);
+    }
+
+    .btn-outline:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: #fff;
+    }
+
+    /* Scroll Indicator */
+    .scroll-indicator {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 12px;
+        font-family: "Outfit", sans-serif;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        transition:
+            opacity 0.3s,
+            transform 0.3s;
+    }
+
+    .scroll-indicator.hidden {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+
+    .mouse {
+        width: 24px;
+        height: 40px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        position: relative;
+    }
+
+    .wheel {
+        width: 2px;
+        height: 6px;
+        background: #fff;
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 1px;
+        animation: scroll 1.5s infinite;
+    }
+
+    @keyframes scroll {
+        0% {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+        100% {
+            transform: translate(-50%, 15px);
+            opacity: 0;
+        }
+    }
+
+    /* Main Content */
+    main {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 32px 100px;
+    }
+
+    .info-section {
+        margin-bottom: 80px;
+        padding: 60px;
+        border-radius: 32px;
+    }
+
+    .info-content h2 {
+        font-family: "Outfit", sans-serif;
+        font-size: 42px;
+        font-weight: 700;
+        margin-bottom: 24px;
+        letter-spacing: -1px;
+    }
+
+    .info-content p {
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.7;
+        margin-bottom: 48px;
+        max-width: 800px;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 32px;
+    }
+
+    .info-card h3 {
+        font-family: "Outfit", sans-serif;
+        font-size: 20px;
+        color: #fff;
+        margin-bottom: 12px;
+    }
+
+    .info-card p {
+        font-size: 15px;
+        margin-bottom: 0;
+    }
+
+    /* Dashboard Layout */
+    .dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 60px;
+    }
+
+    .dashboard :global(.chart-container) {
+        margin-bottom: 0; /* Override component margin */
+    }
+
+    .chart-section.map-full {
+        height: 600px;
+        border-radius: 24px;
+        overflow: hidden;
+    }
+
+    /* States */
+    .loading-state,
+    .error-state {
+        min-height: 400px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: 400px;
         gap: 20px;
     }
 
@@ -265,95 +548,45 @@
         }
     }
 
-    .loading p,
-    .error p {
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 16px;
-    }
-
-    .error p {
-        color: #f87171;
-    }
-
-    .processing p {
-        color: rgba(255, 255, 255, 0.8);
-    }
-
-    .intro-text {
-        max-width: 1400px;
-        margin: 0 auto 32px auto;
-        padding: 24px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .intro-text p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 16px;
-        line-height: 1.6;
-    }
-
-    .charts {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-    }
-
+    /* Footer */
     footer {
-        background: rgba(0, 0, 0, 0.3);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 24px 32px;
+        padding: 80px 32px 40px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
         text-align: center;
-        backdrop-filter: blur(20px);
     }
 
-    footer p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.6);
+    .footer-content p {
+        color: rgba(255, 255, 255, 0.4);
         font-size: 14px;
+        margin-bottom: 12px;
     }
 
     footer a {
         color: #60a5fa;
         text-decoration: none;
-        transition: color 0.2s;
-    }
-
-    footer a:hover {
-        color: #93c5fd;
-        text-decoration: underline;
     }
 
     @media (max-width: 768px) {
-        header {
+        .nav-floating {
             padding: 16px 20px;
         }
-
+        .nav-links {
+            display: none;
+        }
+        .hero-title {
+            margin-bottom: 16px;
+        }
+        .hero-tagline {
+            margin-bottom: 32px;
+        }
         main {
-            padding: 20px;
+            padding: 0 20px 60px;
         }
-
-        .banner {
-            height: 70px;
+        .info-section {
+            padding: 40px 24px;
         }
-
-        h1 {
-            font-size: 24px;
-        }
-
-        .airport-image {
-            max-width: 100%;
-        }
-
-        .intro-text {
-            padding: 16px;
-        }
-
-        .intro-text p {
-            font-size: 14px;
+        .info-content h2 {
+            font-size: 32px;
         }
     }
 
