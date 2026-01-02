@@ -76,6 +76,7 @@
             <div class="nav-links">
                 <a href="#vols-quotidiens">Statistiques</a>
                 <a href="#map">Carte</a>
+                <a href="#resources">Ressources</a>
                 <a
                     href="https://github.com/loz-airport/LSGL_tracker"
                     target="_blank">GitHub</a
@@ -97,6 +98,7 @@
             style="transform: translateY({scrollY * 0.2}px); opacity: {1 -
                 scrollY / 600}"
         >
+            <img src={bannerImage} alt="Logo" class="hero-logo" />
             <h1 class="hero-title">
                 <span class="eyebrow">Aéroport Lausanne-Blécherette</span>
                 <span class="main-title"
@@ -104,8 +106,8 @@
                 >
             </h1>
             <p class="hero-tagline">
-                Visualisez l'occupation du ciel lausannois avec des données
-                réelles et factuelles.
+                Visualisez l'occupation du ciel lausannois via l'aéroport de la
+                Blécherette
             </p>
             <div class="hero-actions">
                 <a href="#stats" class="btn btn-primary">Explorer les données</a
@@ -141,32 +143,42 @@
                 <div class="info-content">
                     <h2>Objectiver le trafic aérien</h2>
                     <p>
-                        L'activité de l'aéroport de la Blécherette suscite de
-                        nombreuses questions. Ce projet vise à offrir aux
-                        riverains comme aux passionnés un outil factuel pour
-                        observer l'occupation du ciel lausannois, au-delà des
-                        simples ressentis.
+                        Avec plus d'une dizaine de mouvements quotidiens,
+                        l'activité de l'aéroport de la Blécherette suscite de
+                        nombreuses questions. Ce projet «Lausanne Airport Flight
+                        Tracker» vise à objectiver ces flux aériens. Combien
+                        d’avions effectuent de simples boucles d'écolage ou des
+                        trajets vers d'autres destinations? En récoltant et
+                        visualisant les données réelles de vol, nous offrons aux
+                        riverains comme aux passionnés de l'aéronautique un
+                        outil factuel pour observer l'occupation du ciel
+                        lausannois.
                     </p>
                     <div class="info-grid">
                         <div class="info-card">
-                            <h3>Indépendant</h3>
+                            <h3>Indépendant & factuel</h3>
                             <p>
                                 S'appuie sur l'API communautaire OpenSky
-                                Network.
+                                Network. Visualisation brute des signaux ADS-B
+                                des aéronefs.
                             </p>
                         </div>
                         <div class="info-card">
-                            <h3>Factuel</h3>
+                            <h3>Actualisé en continu</h3>
                             <p>
-                                Visualisation brute des signaux ADS-B des
-                                aéronefs.
-                            </p>
-                        </div>
-                        <div class="info-card">
-                            <h3>Local</h3>
-                            <p>
-                                Focus spécifique sur LSGL et les quartiers
-                                environnants.
+                                Les données sont actualisées deux fois par jour
+                                et restituées avec un différé de 24 heures. Pour
+                                un suivi en temps réel, vous pouvez consulter
+                                des sites commerciaux comme
+                                <a
+                                    href="https://www.flightradar24.com/data/airports/qyl"
+                                    target="_blank">FlightRadar24</a
+                                >
+                                ou
+                                <a
+                                    href="https://fr.flightaware.com/live/airport/LSGL"
+                                    target="_blank">FlightAware</a
+                                >.
                             </p>
                         </div>
                     </div>
@@ -189,6 +201,102 @@
             </div>
         {/if}
     </main>
+
+    <section id="resources" class="resources-section glass">
+        <div class="resources-content">
+            <h2>Ressources et Articles en lien</h2>
+
+            <div class="resources-grid">
+                <div class="resource-group">
+                    <h3>Organisations</h3>
+                    <ul class="resource-list">
+                        <li>
+                            <a
+                                href="https://adrb.ch/"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                <span class="link-title"
+                                    >L’Association de Défense des Riverains de
+                                    la Blécherette</span
+                                >
+                                <span class="link-url">adrb.ch</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="https://lausanne-airport.ch/"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                <span class="link-title"
+                                    >Site officiel de l'aéroport</span
+                                >
+                                <span class="link-url">lausanne-airport.ch</span
+                                >
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="resource-group">
+                    <h3>Presse et Médias</h3>
+                    <ul class="resource-list press-list">
+                        <li>
+                            <a
+                                href="https://www.rts.ch/info/regions/vaud/14116450-lausanne-souhaite-negocier-un-nouveau-protocole-avec-laeroport-de-la-blecherette.html"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                Lausanne souhaite négocier un nouveau protocole
+                                (RTS, 2023)
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="https://www.lematin.ch/story/nuisances-a-laeroport-de-la-blecherette-tout-va-tres-bien-selon-berne-519920535055"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                Nuisances à l'aéroport: "Tout va très bien selon
+                                Berne" (Le Matin, 2021)
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="https://www.letemps.ch/suisse/vaud/les-nuisances-de-l-aeroport-de-la-blecherette-considerees-comme-marginales"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                Les nuisances considérées comme marginales (Le
+                                Temps, 2023)
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="https://www.rts.ch/info/regions/vaud/12488474-a-lausanne-laeroport-de-la-blecherette-a-nouveau-sous-le-feu-des-critiques.html"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                L’aéroport à nouveau sous le feu des critiques
+                                (RTS, 2021)
+                            </a>
+                        </li>
+                        <li>
+                            <a
+                                href="https://www.letemps.ch/suisse/vaud/laeroport-blecherette-gagne-un-nouveau-combat-niveau-cantonal"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                La Blécherette gagne un nouveau combat cantonal
+                                (Le Temps, 2022)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <footer>
         <div class="footer-content">
@@ -324,27 +432,34 @@
         will-change: transform, opacity;
     }
 
+    .hero-logo {
+        height: 120px;
+        width: auto;
+        margin-bottom: 32px;
+        filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.1));
+    }
+
     .hero-title {
         margin-bottom: 24px;
     }
 
     .eyebrow {
         display: block;
-        font-size: 14px;
-        font-weight: 600;
+        font-size: clamp(16px, 2.5vw, 22px);
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 4px;
+        letter-spacing: 6px;
         color: #60a5fa;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
         font-family: "Outfit", sans-serif;
     }
 
     .main-title {
         display: block;
-        font-size: clamp(48px, 8vw, 84px);
+        font-size: clamp(32px, 6vw, 64px);
         font-weight: 800;
-        line-height: 1;
-        letter-spacing: -3px;
+        line-height: 1.1;
+        letter-spacing: -2px;
         font-family: "Outfit", sans-serif;
         color: #fff;
     }
@@ -505,6 +620,18 @@
         margin-bottom: 0;
     }
 
+    .info-card p a {
+        color: #60a5fa;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .info-card p a:hover {
+        color: #93c5fd;
+        text-decoration: underline;
+    }
+
     /* Dashboard Layout */
     .dashboard {
         display: flex;
@@ -548,10 +675,89 @@
         }
     }
 
+    /* Resources Section */
+    .resources-section {
+        max-width: 1400px;
+        margin: 0 auto 80px auto;
+        padding: 60px;
+        border-radius: 32px;
+    }
+
+    .resources-content h2 {
+        font-family: "Outfit", sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 40px;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .resources-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 60px;
+    }
+
+    .resource-group h3 {
+        font-family: "Outfit", sans-serif;
+        font-size: 18px;
+        color: #60a5fa;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 24px;
+        font-weight: 600;
+    }
+
+    .resource-list {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .resource-list li a {
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+        transition: transform 0.2s;
+    }
+
+    .resource-list li a:hover {
+        transform: translateX(8px);
+    }
+
+    .link-title {
+        color: #fff;
+        font-weight: 500;
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+
+    .link-url {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 13px;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .press-list li a {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 15px;
+        line-height: 1.5;
+        border-left: 2px solid rgba(255, 255, 255, 0.1);
+        padding-left: 16px;
+    }
+
+    .press-list li a:hover {
+        color: #fff;
+        border-color: #60a5fa;
+    }
+
     /* Footer */
     footer {
         padding: 80px 32px 40px;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
         text-align: center;
     }
 
