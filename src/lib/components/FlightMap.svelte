@@ -24,6 +24,7 @@
     let map = $state(null);
     /** @type {Array<any>} */
     let pathLayers = [];
+    let hasAutoStarted = false;
 
     // LSGL coordinates
     const LSGL_LAT = 46.545;
@@ -842,7 +843,28 @@
         const init = () => {
             if (mapContainer && !map) {
                 initMap();
-                // Logic for paths is now handled by the reactive effect watching `map`
+
+                // Setup intersection observer for auto-start
+                if (window.IntersectionObserver) {
+                    const observer = new IntersectionObserver(
+                        (entries) => {
+                            const entry = entries[0];
+                            if (entry.isIntersecting && !hasAutoStarted) {
+                                hasAutoStarted = true;
+                                console.log(
+                                    "FlightMap: Auto-starting animation (visible)",
+                                );
+                                // Delay slightly to ensure map is ready and data is loaded
+                                setTimeout(() => {
+                                    startAnimation();
+                                }, 1000);
+                                observer.disconnect();
+                            }
+                        },
+                        { threshold: 0.1 },
+                    );
+                    observer.observe(mapContainer);
+                }
             }
         };
 
