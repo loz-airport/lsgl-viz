@@ -328,18 +328,46 @@
 
     <footer>
         <div class="footer-content">
-            <p>
-                Données fournies par <a
-                    href="https://opensky-network.org"
-                    target="_blank">OpenSky Network</a
-                >
-            </p>
-            <p>
-                Projet Open Source · <a
-                    href="https://github.com/loz-airport/LSGL_tracker"
-                    target="_blank">GitHub</a
-                >
-            </p>
+            <div class="footer-disclaimer">
+                <p>
+                    Initiative personnelle née de la pure curiosité, ce site a
+                    été codé avec des compétences limitées en aéronautique et en
+                    développement web, mais beaucoup de passion et de "vibe
+                    coding" (propulsé par import antigravity & Gemini).
+                </p>
+                <p>
+                    Le projet est actuellement en phase Bêta : merci d'avance
+                    pour votre indulgence face aux inévitables bugs.
+                </p>
+                <p class="footer-cta">
+                    Vous appréciez l'initiative ? ☕ <a
+                        href="https://github.com/loz-airport/LSGL_tracker"
+                        target="_blank">Contribuez au développement</a
+                    > ou offrez-moi un café
+                </p>
+            </div>
+
+            <div class="footer-credits">
+                <small>
+                    📷 Photo : <a
+                        href="https://commons.wikimedia.org/wiki/File:Aerial_image_of_the_Lausanne-La_Bl%C3%A9cherette_airfield.jpg"
+                        target="_blank"
+                        rel="noopener">Carsten Steger, Wikimedia</a
+                    >
+                    · 📡 Données fournies par
+                    <a
+                        href="https://opensky-network.org"
+                        target="_blank"
+                        rel="noopener">OpenSky Network</a
+                    >
+                    · 💻 Code disponible en Open Source sur
+                    <a
+                        href="https://github.com/loz-airport/LSGL_tracker"
+                        target="_blank"
+                        rel="noopener">GitHub</a
+                    >
+                </small>
+            </div>
         </div>
     </footer>
 </div>
@@ -830,19 +858,49 @@
 
     /* Footer */
     footer {
-        padding: 80px 32px 40px;
+        padding: 80px 32px 60px;
         text-align: center;
+        max-width: 800px;
+        margin: 0 auto;
     }
 
-    .footer-content p {
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 14px;
-        margin-bottom: 12px;
+    .footer-disclaimer p {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 15px;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+
+    .footer-cta {
+        margin-top: 24px;
+        font-weight: 500;
+        color: #fff !important;
+    }
+
+    .footer-credits {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer-credits small {
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 12px;
+        display: block;
+        line-height: 2;
     }
 
     footer a {
         color: #60a5fa;
-        text-decoration: none;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        text-decoration-thickness: 1px;
+        transition: all 0.2s;
+    }
+
+    footer a:hover {
+        color: #93c5fd;
+        text-decoration-thickness: 2px;
     }
 
     @media (max-width: 768px) {

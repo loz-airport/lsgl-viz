@@ -36,3 +36,16 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## License
+
+Ce projet est sous licence **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**.
+
+Cela signifie que vous êtes libre de :
+- **Partager** : copier et redistribuer le matériel sous n'importe quel support ou format.
+- **Adapter** : remixer, transformer et construire à partir du matériel.
+
+Selon les conditions suivantes :
+- **Attribution** : Vous devez créditer l'œuvre originale.
+- **Pas d’Utilisation Commerciale** : Vous n'avez pas le droit de tirer un profit commercial de cette œuvre.
+- **Partage dans les Mêmes Conditions** : Si vous modifiez le projet, vous devez distribuer votre contribution sous la même licence que l'original.
