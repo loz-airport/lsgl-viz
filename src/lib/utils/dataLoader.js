@@ -140,6 +140,15 @@ export function combineFlights(arrivals, departures) {
 }
 
 /**
+ * Helper to check for valid values (not null, undefined, "NA", etc.)
+ * @param {any} val - Value to check
+ * @returns {boolean}
+ */
+export function isValidValue(val) {
+	return val !== null && val !== undefined && val !== "" && val !== "NA";
+}
+
+/**
  * Fetch aircraft metadata from GitHub
  * @returns {Promise<Array>} Parsed CSV data
  */

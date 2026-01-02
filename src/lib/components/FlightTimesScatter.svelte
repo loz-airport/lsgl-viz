@@ -2,6 +2,7 @@
     import * as Plot from "@observablehq/plot";
     import { onMount, onDestroy } from "svelte";
     import { flightStore } from "$lib/stores/flightData.svelte.js";
+    import { isValidValue } from "$lib/utils/dataLoader.js";
 
     let { data = [] } = $props();
 
@@ -13,16 +14,6 @@
 
     // Track previous data length to avoid unnecessary re-renders
     let prevDataLength = $state(0);
-
-    // Helper function to check if a value is valid (not NA, null, undefined, or empty)
-    function isValidValue(value) {
-        return (
-            value &&
-            value !== "NA" &&
-            value !== "null" &&
-            String(value).trim() !== ""
-        );
-    }
 
     // Common airports mapping
     const COMMON_AIRPORTS = {

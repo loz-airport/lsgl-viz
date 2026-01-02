@@ -4,6 +4,7 @@
     import DailyFlightChart from "$lib/components/DailyFlightChart.svelte";
     import FlightTimesScatter from "$lib/components/FlightTimesScatter.svelte";
     import FlightMap from "$lib/components/FlightMap.svelte";
+    import FlightSummary from "$lib/components/FlightSummary.svelte";
     import bannerImage from "$lib/assets/banner_LAT_dark.png";
 
     let scrollY = $state(0);
@@ -208,6 +209,11 @@
                     </div>
                 </div>
             </section>
+
+            <FlightSummary
+                arrivals={flightStore.getFilteredArrivals(30)}
+                departures={flightStore.getFilteredDepartures(30)}
+            />
 
             <div class="dashboard">
                 <div class="chart-section" id="vols-quotidiens">

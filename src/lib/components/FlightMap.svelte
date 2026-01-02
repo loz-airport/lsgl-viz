@@ -5,6 +5,7 @@
     import "leaflet/dist/leaflet.css";
 
     import { flightStore } from "$lib/stores/flightData.svelte.js";
+    import { isValidValue } from "$lib/utils/dataLoader.js";
 
     let { arrivalStateVectors = [], departureStateVectors = [] } = $props();
 
@@ -29,11 +30,6 @@
     // LSGL coordinates
     const LSGL_LAT = 46.545;
     const LSGL_LON = 6.617;
-
-    // Helper to check for valid values (not null, undefined, "NA", etc.)
-    function isValidValue(val) {
-        return val !== null && val !== undefined && val !== "" && val !== "NA";
-    }
 
     // Helper to format date range
     function formatDateRange(startDate, endDate) {

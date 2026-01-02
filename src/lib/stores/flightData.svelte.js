@@ -139,6 +139,14 @@ class FlightStore {
         return joined;
     }
 
+    getFilteredArrivals(days) {
+        return filterByDateRange(this.arrivalsData, days, 'arrival_date');
+    }
+
+    getFilteredDepartures(days) {
+        return filterByDateRange(this.departuresData, days, 'departure_date');
+    }
+
     filteredFlights = $derived.by(() => {
         return this.getFilteredFlights(this.dateRangeDays, this.dateRangeStart, this.dateRangeEnd);
     });
