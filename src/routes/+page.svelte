@@ -12,11 +12,51 @@
 </script>
 
 <svelte:head>
-    <title>Lausanne-Blécherette Airport Flight Tracker</title>
+    <title
+        >Lausanne-Blécherette (LSGL): Trafic avions, nuisances et statistiques -
+        Flight Tracker</title
+    >
     <meta
         name="description"
-        content="Visualisation interactive des vols à l'aéroport de Lausanne-Blécherette (LSGL)"
+        content="Suivez le trafic aérien de l'aéroport de Lausanne-Blécherette en temps réel. Visualisation des mouvements d'avions, impacts sur le quartier Plaines-du-Loup et analyse des nuisances aériennes."
     />
+    <meta
+        name="keywords"
+        content="Lausanne Blécherette aéroport, trafic aérien, nuisances sonores, quartier Plaines-Du-Loup, avions, LSGL, flight tracker, mouvements avions, statistiques vol"
+    />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lsgl-tracker.vercel.app/" />
+    <!-- Placeholder URL, user should update -->
+    <meta
+        property="og:title"
+        content="Lausanne-Blécherette (LSGL): Trafic avions et statistiques"
+    />
+    <meta
+        property="og:description"
+        content="Visualisation interactive des vols, atterrissages et décollages à la Blécherette. Données factuelles sur le trafic au-dessus de Lausanne et des Plaines-du-Loup."
+    />
+    <meta
+        property="og:image"
+        content="https://raw.githubusercontent.com/loz-airport/LSGL_tracker/main/lsgl-viz/src/lib/assets/banner_LAT_dark.png"
+    />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta
+        property="twitter:title"
+        content="Lausanne-Blécherette (LSGL): Trafic avions et statistiques"
+    />
+    <meta
+        property="twitter:description"
+        content="Visualisation interactive des vols à la Blécherette. Données factuelles sur le trafic au-dessus de Lausanne."
+    />
+    <meta
+        property="twitter:image"
+        content="https://raw.githubusercontent.com/loz-airport/LSGL_tracker/main/lsgl-viz/src/lib/assets/banner_LAT_dark.png"
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link
