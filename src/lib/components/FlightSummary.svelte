@@ -46,20 +46,28 @@
         return Object.values(counts)
             .sort((a, b) => b.total - a.total)
             .slice(0, 10)
-            .flatMap((d) => [
-                {
-                    icao: d.icao,
-                    type: "Atterrissages",
-                    count: d.arrivals,
-                    name: flightStore.getAirportInfo(d.icao)?.name || d.icao,
-                },
-                {
-                    icao: d.icao,
-                    type: "Décollages",
-                    count: d.departures,
-                    name: flightStore.getAirportInfo(d.icao)?.name || d.icao,
-                },
-            ]);
+            .flatMap((d) => {
+                const airportName =
+                    flightStore.getAirportInfo(d.icao)?.name || d.icao;
+                const finalName =
+                    airportName === "NA" || !airportName
+                        ? "Aéroport inconnu"
+                        : airportName;
+                return [
+                    {
+                        icao: d.icao,
+                        type: "Atterrissages",
+                        count: d.arrivals,
+                        name: finalName,
+                    },
+                    {
+                        icao: d.icao,
+                        type: "Décollages",
+                        count: d.departures,
+                        name: finalName,
+                    },
+                ];
+            });
     });
 
     // Top 10 Aircraft
@@ -125,7 +133,7 @@
         const airportPlot = Plot.plot({
             width: airportsContainer.clientWidth,
             height: 350,
-            marginLeft: 110,
+            marginLeft: 160,
             x: { label: "Nombre de vols", grid: true },
             y: {
                 label: null,
@@ -141,6 +149,8 @@
                     y: "name",
                     fill: "type",
                     sort: { y: "x", reverse: true },
+                    inset: 0.5,
+                    title: (d) => `${d.name}\n${d.type}: ${d.count} vols`,
                 }),
                 Plot.ruleX([0]),
             ],
@@ -247,25 +257,25 @@
     <div class="stat-box glass">
         <div class="stat-header">
             <span class="stat-icon">📈</span>
-            <h3>Activité Quotidienne</h3>
+            <h3>Activité quotidienne</h3>
         </div>
         <div class="stat-value">{dailyAverage}</div>
         <div class="stat-label">vols en moyenne par jour (30j)</div>
         <p class="stat-description">
             Au cours des 30 derniers jours, il y a eu en moyenne <strong
                 >{dailyAverage}</strong
-            > vols passant par LSGL.
+            > vols passant par l'aéroport de la Blécherette (LSGL).
         </p>
     </div>
 
     <div class="charts-grid">
         <div class="chart-card glass">
-            <h3>Top 10 Aéroports Connectés</h3>
+            <h3>Top 10 aéroports connectés à la Blécherette</h3>
             <div bind:this={airportsContainer} class="chart-container"></div>
         </div>
 
         <div class="chart-card glass aircraft-card">
-            <h3>Top 10 Aéronefs les plus actifs</h3>
+            <h3>Top 10 aéronefs les plus actifs</h3>
             <div
                 bind:this={aircraftContainer}
                 class="chart-container aircraft-chart"
