@@ -750,7 +750,7 @@
     }
 
     .chart-section.map-full {
-        padding: 0; /* Map might need to be full bleed or handled differently */
+        /* padding: 0; removed to match other boxes */
         height: auto;
         min-height: 700px;
         border-radius: 24px;

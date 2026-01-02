@@ -1083,12 +1083,13 @@
 
 <style>
     .map-container {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 24px;
-        padding: 32px;
-        margin-bottom: 32px;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Visual box styles removed to prevent double-glass effect */
+        /* background: rgba(255, 255, 255, 0.05); */
+        /* border-radius: 24px; */
+        /* padding: 32px; */
+        /* margin-bottom: 32px; */
+        /* backdrop-filter: blur(20px); */
+        /* border: 1px solid rgba(255, 255, 255, 0.1); */
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -1105,8 +1106,9 @@
 
     h2 {
         margin: 0;
+        font-family: "Outfit", sans-serif;
         font-size: 20px;
-        font-weight: 600;
+        font-weight: 700;
         color: #fff;
     }
 
