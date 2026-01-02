@@ -214,13 +214,13 @@
             />
 
             <div class="dashboard">
-                <div class="chart-section" id="vols-quotidiens">
+                <div class="chart-section glass" id="vols-quotidiens">
                     <DailyFlightChart data={flightStore.dailyFlightCounts} />
                 </div>
-                <div class="chart-section" id="horaires">
+                <div class="chart-section glass" id="horaires">
                     <FlightTimesScatter data={flightStore.filteredFlights} />
                 </div>
-                <div class="chart-section map-full" id="map">
+                <div class="chart-section map-full glass" id="map">
                     <FlightMap
                         arrivalStateVectors={flightStore.arrivalStateVectors}
                         departureStateVectors={flightStore.departureStateVectors}
@@ -327,7 +327,7 @@
     </section>
 
     <footer>
-        <div class="footer-content">
+        <div class="footer-content glass">
             <div class="footer-disclaimer">
                 <p>
                     Initiative personnelle née de la pure curiosité, ce site a
@@ -745,7 +745,12 @@
         margin-bottom: 0; /* Override component margin */
     }
 
+    .chart-section {
+        padding: 32px;
+    }
+
     .chart-section.map-full {
+        padding: 0; /* Map might need to be full bleed or handled differently */
         height: auto;
         min-height: 700px;
         border-radius: 24px;
@@ -869,10 +874,13 @@
 
     /* Footer */
     footer {
-        padding: 80px 32px 60px;
-        text-align: center;
-        max-width: 800px;
+        padding: 0 32px 60px;
+        max-width: 1000px;
         margin: 0 auto;
+    }
+
+    .footer-content {
+        padding: 48px;
     }
 
     .footer-disclaimer p {

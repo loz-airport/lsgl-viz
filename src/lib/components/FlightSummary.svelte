@@ -333,6 +333,7 @@
     <div class="charts-grid">
         <div class="chart-card glass">
             <h3>Top 10 aéroports connectés à la Blécherette</h3>
+            <p class="chart-subtitle">durant les 30 derniers jours</p>
             <div bind:this={airportsContainer} class="chart-container"></div>
             <p class="chart-footnote">
                 Les vols effectuant une boucle depuis la Blécherette comptent
@@ -342,6 +343,7 @@
 
         <div class="chart-card glass aircraft-card">
             <h3>Top 10 aéronefs les plus actifs</h3>
+            <p class="chart-subtitle">durant les 30 derniers jours</p>
             <div
                 bind:this={aircraftContainer}
                 class="chart-container aircraft-chart"
@@ -512,11 +514,18 @@
 
     .chart-card h3 {
         margin-top: 0;
-        margin-bottom: 24px;
+        margin-bottom: 4px;
         font-family: "Outfit", sans-serif;
         font-size: 20px;
         font-weight: 700;
         color: #fff;
+    }
+
+    .chart-subtitle {
+        margin: 0 0 24px 0;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 400;
     }
 
     .chart-container {
