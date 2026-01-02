@@ -1,5 +1,5 @@
 <script>
-    import { onMount, onDestroy } from "svelte";
+    import { onMount, onDestroy, untrack } from "svelte";
     import { browser } from "$app/environment";
     import L from "leaflet";
     import "leaflet/dist/leaflet.css";
@@ -17,6 +17,17 @@
     let currentFlightIndex = $state(0);
     let animatedFlights = $state([]);
     let flightInfoPanel = $state(null);
+
+    /** @type {HTMLDivElement} */
+    let mapContainer = $state();
+    /** @type {any} */
+    let map = $state(null);
+    /** @type {Array<any>} */
+    let pathLayers = [];
+
+    // LSGL coordinates
+    const LSGL_LAT = 46.545;
+    const LSGL_LON = 6.617;
 
     // Helper to check for valid values (not null, undefined, "NA", etc.)
     function isValidValue(val) {
@@ -86,100 +97,77 @@
 
     const dateRangeOptions = $derived(getDateRangeOptions());
 
-    function handleDateRangeChange() {
-        console.log("Date range changed:", selectedDateRange);
-        const option = dateRangeOptions.find(
-            (opt) => opt.value === selectedDateRange,
-        );
+    // Unified logic to update external date range parameters (internal state for filtering)
+    function updateInternalDateRange(rangeValue) {
+        const option = dateRangeOptions.find((opt) => opt.value === rangeValue);
         if (!option) return;
 
-        // Stop animation when changing range
-        stopAnimation();
-
         if (option.startDate && option.endDate) {
-            // Date range (week)
             mapDateRangeDays = null;
             mapDateRangeStart = option.startDate;
             mapDateRangeEnd = option.endDate;
         } else {
-            // Number of days
             mapDateRangeDays = option.days || 7;
             mapDateRangeStart = null;
             mapDateRangeEnd = null;
         }
     }
 
-    // Consolidate effects to handle initialization and updates correctly
-    $effect(() => {
-        // Track all dependencies for map update
-        const currentData = {
-            arrivals: arrivalStateVectors,
-            departures: departureStateVectors,
-            range: selectedDateRange,
-            options: dateRangeOptions,
-        };
-
-        if (!map) return;
-
-        // Find selected range details synchronously
-        const option = currentData.options.find(
-            (opt) => opt.value === currentData.range,
-        );
-        if (option) {
-            // Stop animation immediately when range changes
-            stopAnimation();
-
-            // Update internal range state
-            if (option.startDate && option.endDate) {
-                mapDateRangeDays = null;
-                mapDateRangeStart = option.startDate;
-                mapDateRangeEnd = option.endDate;
-            } else {
-                mapDateRangeDays = option.days || 7;
-                mapDateRangeStart = null;
-                mapDateRangeEnd = null;
-            }
-
-            // Schedule update
-            clearTimeout(map._updateTimeout);
-            map._updateTimeout = setTimeout(() => {
-                updateFlightPaths();
-            }, 100);
-        }
-    });
-
-    /** @type {HTMLDivElement} */
-    let mapContainer = $state();
     /** @type {any} */
-    let map;
-    /** @type {Array<any>} */
-    let pathLayers = [];
+    let resizeObserver;
 
-    // LSGL coordinates
-    const LSGL_LAT = 46.545;
-    const LSGL_LON = 6.617;
-
-    $effect(() => {
-        if (
-            map &&
-            (arrivalStateVectors.length > 0 || departureStateVectors.length > 0)
-        ) {
-            clearTimeout(map._updateTimeout);
-            map._updateTimeout = setTimeout(() => {
-                updateFlightPaths();
-            }, 200);
+    // Helper to safely invalidate map size
+    function safeInvalidateSize() {
+        if (map && mapContainer) {
+            try {
+                map.invalidateSize();
+            } catch (e) {
+                console.warn("FlightMap: Failed to invalidate size", e);
+            }
         }
+    }
+
+    // Consolidated reactive effect for state updates (period or data changes)
+    $effect(() => {
+        // Track dependencies
+        const range = selectedDateRange;
+        const arrivals = arrivalStateVectors;
+        const departures = departureStateVectors;
+        const currentMap = map; // Track the map state
+
+        if (!currentMap) return;
+
+        console.log(
+            `FlightMap: Effect triggered. Map: OK, Range: ${range}, Arrivals: ${arrivals.length}, Departures: ${departures.length}`,
+        );
+
+        // Stop animation immediately when state changes
+        untrack(() => stopAnimation());
+
+        // Update internal date state
+        updateInternalDateRange(range);
+
+        // Schedule path update with a small delay to allow state to settle
+        clearTimeout(currentMap._updateTimeout);
+        currentMap._updateTimeout = setTimeout(() => {
+            console.log(
+                "FlightMap: Executing scheduled updateFlightPaths from effect",
+            );
+            updateFlightPaths();
+            safeInvalidateSize();
+        }, 50);
     });
 
     function initMap() {
         if (!browser || !mapContainer) return;
 
         try {
+            console.log("FlightMap: Initializing map...");
             if (map) {
                 map.remove();
             }
 
-            map = L.map(mapContainer, {
+            const newMap = L.map(mapContainer, {
                 center: [LSGL_LAT, LSGL_LON],
                 zoom: 9,
                 zoomControl: true,
@@ -194,7 +182,7 @@
                     subdomains: "abcd",
                     maxZoom: 20,
                 },
-            ).addTo(map);
+            ).addTo(newMap);
 
             // Add airport marker
             const airportIcon = L.divIcon({
@@ -204,8 +192,29 @@
             });
 
             L.marker([LSGL_LAT, LSGL_LON], { icon: airportIcon })
-                .addTo(map)
+                .addTo(newMap)
                 .bindPopup("<strong>LSGL</strong><br>Lausanne-Blécherette");
+
+            // Use ResizeObserver for robust layout handling
+            if (window.ResizeObserver && mapContainer) {
+                resizeObserver = new ResizeObserver(() => {
+                    if (newMap) {
+                        try {
+                            newMap.invalidateSize();
+                        } catch (e) {}
+                    }
+                });
+                resizeObserver.observe(mapContainer);
+            }
+
+            // Set the reactive map state
+            map = newMap;
+            console.log("FlightMap: Map initialized and state set.");
+
+            // Initial fix with fallback
+            setTimeout(() => {
+                safeInvalidateSize();
+            }, 200);
         } catch (e) {
             console.error("Leaflet initialization failed:", e);
         }
@@ -245,12 +254,13 @@
         }
 
         console.log(
-            `FlightMap: Filtering from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+            `FlightMap: Filtering data from ${startDate.toDateString()} to ${endDate.toDateString()}`,
         );
 
         // Filter state vectors by date range
         const filteredArrivals = arrivalsRaw.filter((sv) => {
-            const dateStr = sv.arrival_date || sv.arrival_time;
+            const dateStr =
+                sv.arrival_date || sv.arrival_time || sv.requested_time;
             if (!dateStr) return false;
 
             const date = new Date(dateStr);
@@ -267,7 +277,8 @@
         });
 
         const filteredDepartures = departuresRaw.filter((sv) => {
-            const dateStr = sv.departure_date || sv.departure_time;
+            const dateStr =
+                sv.departure_date || sv.departure_time || sv.requested_time;
             if (!dateStr) return false;
 
             const date = new Date(dateStr);
@@ -283,9 +294,17 @@
             );
         });
 
+        console.log(
+            `FlightMap: Filter results - Arrivals: ${filteredArrivals.length}, Departures: ${filteredDepartures.length}`,
+        );
+
         // Group by flight ID and limit points per flight for performance
         const arrivalPaths = groupByFlightId(filteredArrivals);
         const departurePaths = groupByFlightId(filteredDepartures);
+
+        console.log(
+            `FlightMap: Grouped results - Arrival IDs: ${Object.keys(arrivalPaths).length}, Departure IDs: ${Object.keys(departurePaths).length}`,
+        );
 
         // Limit the number of points per flight path for performance
         const maxPointsPerFlight = 20;
@@ -610,8 +629,15 @@
         );
         animatedFlights = allFlightsForAnimation;
         console.log(
-            `FlightMap: Prepared ${animatedFlights.length} flights for animation`,
+            `FlightMap: Prepared ${animatedFlights.length} flights for animation after sorting`,
         );
+
+        if (animatedFlights.length > 0) {
+            console.log(
+                "FlightMap: First animated flight ID sample:",
+                animatedFlights[0].flightId,
+            );
+        }
 
         // Don't draw with opacity here - standard draw
         Object.entries(arrivalPaths).forEach(([flightId, points]) => {
@@ -621,6 +647,8 @@
         Object.entries(departurePaths).forEach(([flightId, points]) => {
             drawPath(points, "#fb923c", flightId, false);
         });
+
+        safeInvalidateSize();
 
         // Fit map bounds to paths if any exist
         if (pathLayers.length > 0 && !isAnimating) {
@@ -644,14 +672,20 @@
     function startAnimation() {
         if (isAnimating) return;
 
-        // Correctly refer to animatedFlights state
+        console.log("FlightMap: startAnimation requested.");
+
+        // Force a synchronous update if we have no animated flights or if they might be stale
+        // This ensures pathLayers is populated
+        if (animatedFlights.length === 0 || pathLayers.length === 0) {
+            console.log("FlightMap: Forcing updateFlightPaths before start");
+            updateFlightPaths();
+        }
+
         const flightsToAnimate = $state.snapshot(animatedFlights);
 
-        // If we have flights to animate
         if (!flightsToAnimate || flightsToAnimate.length === 0) {
-            console.warn("No flights to animate");
-            // Add visual feedback
-            alert("Aucun vol à animer pour la période sélectionnée.");
+            console.warn("FlightMap: No flights prepared for animation");
+            alert("Aucun vol à préparer pour l'animation dans cette période.");
             return;
         }
 
@@ -663,7 +697,7 @@
         isAnimating = true;
         currentFlightIndex = 0;
 
-        // Start animation loop
+        // Ensure we fit current flight
         showFlightInAnimation(currentFlightIndex);
 
         animationInterval = setInterval(() => {
@@ -808,34 +842,29 @@
         const init = () => {
             if (mapContainer && !map) {
                 initMap();
-                // Update paths after map is fully initialized
-                setTimeout(() => {
-                    if (map && mapContainer) {
-                        // Use invalidateSize to ensure map is ready
-                        try {
-                            map.invalidateSize();
-                            updateFlightPaths();
-                        } catch (e) {
-                            console.error(
-                                "FlightMap: Error during initialization:",
-                                e,
-                            );
-                        }
-                    }
-                }, 300);
+                // Logic for paths is now handled by the reactive effect watching `map`
             }
         };
 
-        // Try immediately, then with a small delay if needed
         if (mapContainer) {
             init();
         } else {
-            setTimeout(init, 100);
+            const checkContainer = setInterval(() => {
+                if (mapContainer) {
+                    clearInterval(checkContainer);
+                    init();
+                }
+            }, 50);
+            // Safety timeout
+            setTimeout(() => clearInterval(checkContainer), 2000);
         }
     });
 
     onDestroy(() => {
         stopAnimation();
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+        }
         if (map?._updateTimeout) {
             clearTimeout(map._updateTimeout);
         }

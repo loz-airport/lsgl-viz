@@ -33,7 +33,7 @@ export async function fetchCSV(filename) {
 	try {
 		console.log(`Fetching ${filename}...`);
 		const response = await fetchWithTimeout(url);
-		
+
 		if (!response.ok) {
 			throw new Error(`Failed to fetch ${filename}: ${response.status} ${response.statusText}`);
 		}
@@ -83,11 +83,23 @@ export function transformFlightData(data, type) {
  * @returns {Array} Transformed state vector data
  */
 export function transformStateVectors(data) {
+	const parseTime = (val) => {
+		if (!val) return null;
+		// If it's a number and smells like a Unix timestamp (seconds)
+		if (typeof val === 'number' && val > 1000000000 && val < 4000000000) {
+			return new Date(val * 1000);
+		}
+		const d = new Date(val);
+		return isNaN(d.getTime()) ? null : d;
+	};
+
 	return data.map(row => ({
 		...row,
-		requested_time: row.requested_time ? new Date(row.requested_time * 1000) : null,
-		arrival_date: row.arrival_date ? new Date(row.arrival_date) : null,
-		departure_date: row.departure_date ? new Date(row.departure_date) : null
+		requested_time: parseTime(row.requested_time),
+		arrival_date: parseTime(row.arrival_date),
+		departure_date: parseTime(row.departure_date),
+		arrival_time: parseTime(row.arrival_time),
+		departure_time: parseTime(row.departure_time)
 	}));
 }
 
@@ -137,7 +149,7 @@ export async function fetchAircraftMetadata() {
 	try {
 		console.log('Fetching aircraft metadata...');
 		const response = await fetchWithTimeout(url);
-		
+
 		if (!response.ok) {
 			throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
 		}
