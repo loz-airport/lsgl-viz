@@ -232,7 +232,7 @@
 
     <section id="resources" class="resources-section glass">
         <div class="resources-content">
-            <h2>Ressources et Articles en lien</h2>
+            <h2>Ressources et articles en lien</h2>
 
             <div class="resources-grid">
                 <div class="resource-group">
