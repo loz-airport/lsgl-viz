@@ -56,7 +56,7 @@
 					Plot.ruleY([0]),
 					Plot.dot(
 						chartData,
-						Plot.pointer({
+						Plot.pointerX({
 							x: "type",
 							y: "count",
 							fx: "date",
@@ -130,7 +130,7 @@
 					// Transform to track the pointer and update plot.value
 					Plot.dot(
 						rawData,
-						Plot.pointer({
+						Plot.pointerX({
 							x: "date",
 							y: "arrivals",
 							fill: "none",
