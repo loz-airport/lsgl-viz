@@ -632,12 +632,11 @@
     .panel-placeholder {
         background: rgba(15, 23, 42, 0.4);
         border-radius: 12px;
-        padding: 16px;
+        padding: 20px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: white;
         height: min-content;
-        min-height: 300px;
-        max-width: 280px;
+        min-height: 400px;
     }
 
     .route-info {

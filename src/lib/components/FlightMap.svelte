@@ -1,5 +1,5 @@
 <script>
-    import { onMount, onDestroy, untrack } from "svelte";
+    import { onMount, onDestroy } from "svelte";
     import { browser } from "$app/environment";
     import L from "leaflet";
     import "leaflet/dist/leaflet.css";
@@ -106,27 +106,23 @@
     }
 
     $effect(() => {
-        // React ONLY to selectedDateRange changes
+        // React to selectedDateRange changes
         const currentRange = selectedDateRange;
-        // Don't track dateRangeOptions here if possible
-        untrack(() => {
-            const option = dateRangeOptions.find(
-                (opt) => opt.value === currentRange,
-            );
-            if (option) {
-                console.log("Date range effect triggered, stopping animation");
-                stopAnimation();
-                if (option.startDate && option.endDate) {
-                    mapDateRangeDays = null;
-                    mapDateRangeStart = option.startDate;
-                    mapDateRangeEnd = option.endDate;
-                } else {
-                    mapDateRangeDays = option.days || 7;
-                    mapDateRangeStart = null;
-                    mapDateRangeEnd = null;
-                }
+        const options = dateRangeOptions;
+        const option = options.find((opt) => opt.value === currentRange);
+
+        if (option) {
+            stopAnimation();
+            if (option.startDate && option.endDate) {
+                mapDateRangeDays = null;
+                mapDateRangeStart = option.startDate;
+                mapDateRangeEnd = option.endDate;
+            } else {
+                mapDateRangeDays = option.days || 7;
+                mapDateRangeStart = null;
+                mapDateRangeEnd = null;
             }
-        });
+        }
     });
 
     /** @type {HTMLDivElement} */
@@ -139,19 +135,6 @@
     // LSGL coordinates
     const LSGL_LAT = 46.545;
     const LSGL_LON = 6.617;
-
-    // Helper function to check if a value is valid (not NA, null, undefined, or empty)
-    const isValidValue = (value) => {
-        return (
-            value &&
-            value !== "NA" &&
-            value !== "null" &&
-            String(value).trim() !== ""
-        );
-    };
-
-    // Derived value to force reactivity
-    const shouldShowPanel = $derived(isAnimating && flightInfoPanel !== null);
 
     $effect(() => {
         // React to changes in state vectors and local date range (not store)
@@ -363,6 +346,16 @@
             });
 
             return { flight, metadata: metadata || null };
+        };
+
+        // Helper function to check if a value is valid (not NA, null, undefined, or empty)
+        const isValidValue = (value) => {
+            return (
+                value &&
+                value !== "NA" &&
+                value !== "null" &&
+                String(value).trim() !== ""
+            );
         };
 
         // Function to create popup content
@@ -657,11 +650,9 @@
             "flights",
         );
         isAnimating = true;
-        console.log("isAnimating set to:", isAnimating);
         currentFlightIndex = 0;
 
         // Start animation loop
-        console.log("Showing first flight at index 0");
         showFlightInAnimation(currentFlightIndex);
 
         animationInterval = setInterval(() => {
@@ -669,36 +660,28 @@
             if (currentFlightIndex >= animatedFlights.length) {
                 currentFlightIndex = 0;
             }
-            console.log(
-                "Animation step:",
-                currentFlightIndex,
-                "/",
-                animatedFlights.length,
-            );
             showFlightInAnimation(currentFlightIndex);
         }, 1500); // Speed up to 1.5s per flight
     }
 
     function stopAnimation() {
-        console.log("stopAnimation called");
-        console_trace();
         if (animationInterval) {
             clearInterval(animationInterval);
             animationInterval = null;
         }
         isAnimating = false;
         currentFlightIndex = 0;
-        flightInfoPanel = null;
 
         // Reset all layers to original style
         pathLayers.forEach((layer) => {
-            if (layer.setStyle) {
-                layer.setStyle({
-                    weight: layer._originalWeight || 2,
-                    opacity: layer._originalOpacity || 0.6,
-                });
-            }
+            layer.setStyle({
+                weight: layer._originalWeight,
+                opacity: layer._originalOpacity,
+            });
         });
+
+        // Clear info panel
+        flightInfoPanel = null;
 
         // Fit bounds to all
         if (pathLayers.length > 0 && map) {
@@ -710,39 +693,10 @@
         }
     }
 
-    // Stack trace helper
-    function console_trace() {
-        try {
-            throw new Error("Animation Stop Trace");
-        } catch (e) {
-            console.log(e.stack);
-        }
-    }
-
     function showFlightInAnimation(index) {
-        console.log("showFlightInAnimation called with index:", index);
-        if (index >= animatedFlights.length || !map) {
-            console.warn(
-                "Invalid index or no map:",
-                index,
-                animatedFlights.length,
-                !!map,
-            );
-            return;
-        }
+        if (index >= animatedFlights.length || !map) return;
 
         const flight = animatedFlights[index];
-        if (!flight || !flight.flightId) {
-            console.warn("Invalid flight at index", index, flight);
-            return;
-        }
-
-        console.log(
-            "Processing flight:",
-            flight.flightId,
-            "isArrival:",
-            flight.isArrival,
-        );
         const currentFlightId = String(flight.flightId); // Ensure string
 
         // Update all layers
@@ -773,48 +727,22 @@
             }
         });
 
-        console.log(
-            "Matched",
-            matchingLayers,
-            "layers for flight",
-            currentFlightId,
-        );
-
         // Zoom to flight bounds
         if (currentSegments.length > 0) {
-            try {
-                const group = L.featureGroup(currentSegments);
-                const bounds = group.getBounds();
-                if (bounds.isValid()) {
-                    map.fitBounds(bounds.pad(0.2), {
-                        animate: true,
-                        duration: 1,
-                    });
-                }
-            } catch (e) {
-                console.warn("Error fitting bounds:", e);
+            const group = L.featureGroup(currentSegments);
+            const bounds = group.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds.pad(0.2), { animate: true, duration: 1 });
             }
         }
 
         // Update info panel
-        if (flight.flightInfo && flight.flightInfo.flight) {
-            console.log("Setting flightInfoPanel with flight data");
-            // Use snapshot to create plain objects instead of proxies
+        if (flight.flightInfo) {
             flightInfoPanel = {
-                flight: $state.snapshot(flight.flightInfo.flight),
-                metadata: flight.flightInfo.metadata
-                    ? $state.snapshot(flight.flightInfo.metadata)
-                    : null,
+                flight: flight.flightInfo.flight,
+                metadata: flight.flightInfo.metadata,
                 isArrival: flight.isArrival,
             };
-            console.log("flightInfoPanel set:", flightInfoPanel);
-        } else {
-            console.warn(
-                "No flight info for flight",
-                currentFlightId,
-                flight.flightInfo,
-            );
-            flightInfoPanel = null;
         }
     }
 
@@ -930,8 +858,7 @@
     </div>
     <div class="map-wrapper">
         <div bind:this={mapContainer} class="map"></div>
-
-        {#if shouldShowPanel}
+        {#if flightInfoPanel?.flight && isAnimating}
             <div class="flight-info-panel">
                 <div class="panel-header">
                     <span
