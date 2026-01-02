@@ -472,16 +472,24 @@
 
 <style>
     .chart-container {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
+        position: relative;
         padding: 24px;
         margin-bottom: 24px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
         display: grid;
         grid-template-columns: 1fr 280px;
         gap: 24px;
-        position: relative;
+    }
+
+    .chart-container::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: -1;
+        pointer-events: none;
     }
 
     @media (max-width: 900px) {
