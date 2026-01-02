@@ -16,8 +16,12 @@
     let animationInterval = $state(null);
     let currentFlightIndex = $state(0);
     let animatedFlights = $state([]);
-    let highlightedFlightLayer = $state(null);
     let flightInfoPanel = $state(null);
+
+    // Helper to check for valid values (not null, undefined, "NA", etc.)
+    function isValidValue(val) {
+        return val !== null && val !== undefined && val !== "" && val !== "NA";
+    }
 
     // Helper to format date range
     function formatDateRange(startDate, endDate) {
@@ -668,7 +672,7 @@
                 currentFlightIndex = 0;
             }
             showFlightInAnimation(currentFlightIndex);
-        }, 1500); // Speed up to 1.5s per flight
+        }, 3500); // Increased to 3.5s per flight as requested
     }
 
     function stopAnimation() {
@@ -745,9 +749,24 @@
 
         // Update info panel
         if (flight.flightInfo) {
+            console.log(
+                "FlightMap: Updating info panel for flight",
+                flight.flightId,
+            );
             flightInfoPanel = {
                 flight: flight.flightInfo.flight,
                 metadata: flight.flightInfo.metadata,
+                isArrival: flight.isArrival,
+            };
+        } else {
+            console.warn(
+                "FlightMap: No flightInfo found for animation flight",
+                flight.flightId,
+            );
+            // Fallback to show at least the ID if possible
+            flightInfoPanel = {
+                flight: { ICAO24: flight.flightId },
+                metadata: null,
                 isArrival: flight.isArrival,
             };
         }
@@ -876,23 +895,34 @@
                             ? "ATTERRISSAGE"
                             : "DÉCOLLAGE"}
                     </span>
+                    <span class="time-badge">
+                        {#if flightInfoPanel.isArrival}
+                            {flightInfoPanel.flight.arrival_time?.toLocaleTimeString(
+                                "fr-CH",
+                                { hour: "2-digit", minute: "2-digit" },
+                            )}
+                        {:else}
+                            {flightInfoPanel.flight.departure_time?.toLocaleTimeString(
+                                "fr-CH",
+                                { hour: "2-digit", minute: "2-digit" },
+                            )}
+                        {/if}
+                    </span>
                 </div>
+
+                <div class="flight-main">
+                    <div class="callsign">
+                        {flightInfoPanel.flight?.call_sign &&
+                        flightInfoPanel.flight.call_sign !== "NA"
+                            ? flightInfoPanel.flight.call_sign
+                            : "Inconnu"}
+                    </div>
+                    <div class="icao">
+                        {flightInfoPanel.flight?.ICAO24 || "ICAO inconnu"}
+                    </div>
+                </div>
+
                 <div class="panel-content">
-                    <!-- Call Sign -->
-                    {#if flightInfoPanel.flight?.call_sign && flightInfoPanel.flight.call_sign !== "NA"}
-                        <div class="callsign">
-                            {flightInfoPanel.flight.call_sign}
-                        </div>
-                    {/if}
-
-                    <!-- ICAO24 -->
-                    {#if flightInfoPanel.flight?.ICAO24 && flightInfoPanel.flight.ICAO24 !== "NA"}
-                        <div class="icao">
-                            ICAO24: {flightInfoPanel.flight.ICAO24}
-                        </div>
-                    {/if}
-
-                    <!-- Airport Information -->
                     {#if flightInfoPanel.flight}
                         {@const originCode =
                             flightInfoPanel.flight.departure_airport_ICAO}
@@ -902,135 +932,90 @@
                             flightStore.getAirportInfo(originCode)}
                         {@const destInfo = flightStore.getAirportInfo(destCode)}
 
-                        <!-- Departure Airport -->
-                        {#if originCode && originCode !== "NA"}
-                            <div class="info-section">
-                                <div class="section-title">Départ</div>
-                                <div class="info-item">
-                                    {#if originCode === "LSGL"}
-                                        <strong
-                                            >Lausanne-Blécherette (LSGL)</strong
-                                        >
-                                    {:else if originInfo?.name && originInfo.name !== "NA"}
-                                        <strong>{originInfo.name}</strong>
-                                        <div class="sub-info">
-                                            {originCode}
-                                            {#if originInfo?.country && originInfo.country !== "NA"}
-                                                · {originInfo.country}
-                                            {/if}
-                                        </div>
+                        <div class="route-info">
+                            <div class="route-row">
+                                <span class="label"
+                                    >{flightInfoPanel.isArrival
+                                        ? "Provenance"
+                                        : "Destination"}:</span
+                                >
+                                <span class="value">
+                                    {#if flightInfoPanel.isArrival}
+                                        {originCode === "LSGL"
+                                            ? "Lausanne (LSGL)"
+                                            : originInfo?.name &&
+                                                originInfo.name !== "NA"
+                                              ? `${originInfo.name} (${originCode})`
+                                              : originCode}
                                     {:else}
-                                        <strong>{originCode}</strong>
+                                        {destCode === "LSGL"
+                                            ? "Lausanne (LSGL)"
+                                            : destInfo?.name &&
+                                                destInfo.name !== "NA"
+                                              ? `${destInfo.name} (${destCode})`
+                                              : destCode}
                                     {/if}
-                                </div>
-                                {#if flightInfoPanel.flight.departure_time}
-                                    <div class="info-item time-info">
-                                        {new Intl.DateTimeFormat("fr-CH", {
-                                            day: "numeric",
-                                            month: "short",
-                                            year: "numeric",
-                                        }).format(
-                                            flightInfoPanel.flight
-                                                .departure_time,
-                                        )}
-                                        à {flightInfoPanel.flight.departure_time.toLocaleTimeString(
-                                            "fr-CH",
-                                            {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                            },
-                                        )}
+                                </span>
+                            </div>
+                            <div class="route-row">
+                                <span class="label">Date:</span>
+                                <span class="value">
+                                    {new Intl.DateTimeFormat("fr-CH", {
+                                        dateStyle: "full",
+                                    }).format(
+                                        flightInfoPanel.isArrival
+                                            ? flightInfoPanel.flight
+                                                  .arrival_date
+                                            : flightInfoPanel.flight
+                                                  .departure_date,
+                                    )}
+                                </span>
+                            </div>
+                            {#if flightInfoPanel.flight.arrival_time && flightInfoPanel.flight.departure_time}
+                                {@const duration = Math.round(
+                                    (flightInfoPanel.flight.arrival_time -
+                                        flightInfoPanel.flight.departure_time) /
+                                        60000,
+                                )}
+                                {#if duration > 0}
+                                    <div class="route-row">
+                                        <span class="label">Durée vol:</span>
+                                        <span class="value">
+                                            {#if duration >= 60}
+                                                {Math.floor(duration / 60)}h {duration %
+                                                    60}min
+                                            {:else}
+                                                {duration}min
+                                            {/if}
+                                        </span>
                                     </div>
                                 {/if}
-                            </div>
-                        {/if}
-
-                        <!-- Arrival Airport -->
-                        {#if destCode && destCode !== "NA"}
-                            <div class="info-section">
-                                <div class="section-title">Arrivée</div>
-                                <div class="info-item">
-                                    {#if destCode === "LSGL"}
-                                        <strong
-                                            >Lausanne-Blécherette (LSGL)</strong
-                                        >
-                                    {:else if destInfo?.name && destInfo.name !== "NA"}
-                                        <strong>{destInfo.name}</strong>
-                                        <div class="sub-info">
-                                            {destCode}
-                                            {#if destInfo?.country && destInfo.country !== "NA"}
-                                                · {destInfo.country}
-                                            {/if}
-                                        </div>
-                                    {:else}
-                                        <strong>{destCode}</strong>
-                                    {/if}
-                                </div>
-                                {#if flightInfoPanel.flight.arrival_time}
-                                    <div class="info-item time-info">
-                                        {new Intl.DateTimeFormat("fr-CH", {
-                                            day: "numeric",
-                                            month: "short",
-                                            year: "numeric",
-                                        }).format(
-                                            flightInfoPanel.flight.arrival_time,
-                                        )}
-                                        à {flightInfoPanel.flight.arrival_time.toLocaleTimeString(
-                                            "fr-CH",
-                                            {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                            },
-                                        )}
-                                    </div>
-                                {/if}
-                            </div>
-                        {/if}
-
-                        <!-- Flight Duration -->
-                        {#if flightInfoPanel.flight.arrival_time && flightInfoPanel.flight.departure_time}
-                            {@const duration = Math.round(
-                                (flightInfoPanel.flight.arrival_time -
-                                    flightInfoPanel.flight.departure_time) /
-                                    60000,
-                            )}
-                            {#if duration > 0}
-                                <div class="info-section">
-                                    <div class="info-item">
-                                        <strong>Temps de vol:</strong>
-                                        {#if duration >= 60}
-                                            {Math.floor(duration / 60)}h {duration %
-                                                60}min
-                                        {:else}
-                                            {duration}min
-                                        {/if}
-                                    </div>
-                                </div>
-                            {/if}
-                        {/if}
-                    {/if}
-
-                    <!-- Aircraft Metadata -->
-                    {#if flightInfoPanel.metadata}
-                        <div class="metadata-section">
-                            <div class="section-title">Aéronef</div>
-                            {#if isValidValue(flightInfoPanel.metadata.model) && flightInfoPanel.metadata.model !== "NA"}
-                                <div class="info-item">
-                                    <strong>Modèle:</strong>
-                                    {flightInfoPanel.metadata.model}
-                                </div>
-                            {/if}
-                            {#if isValidValue(flightInfoPanel.metadata.origin_country) && flightInfoPanel.metadata.origin_country !== "NA"}
-                                <div class="info-item">
-                                    <strong>Pays d'immatriculation:</strong>
-                                    {flightInfoPanel.metadata.origin_country}
-                                </div>
                             {/if}
                         </div>
+                    {/if}
 
-                        <!-- Aircraft Photo -->
+                    {#if flightInfoPanel.metadata}
+                        <div class="metadata-info">
+                            <div class="model">
+                                <strong>Modèle:</strong>
+                                {isValidValue(flightInfoPanel.metadata.model) &&
+                                flightInfoPanel.metadata.model !== "NA"
+                                    ? flightInfoPanel.metadata.model
+                                    : "Inconnu"}
+                            </div>
+                            <div class="registration">
+                                <strong>Pays:</strong>
+                                {isValidValue(
+                                    flightInfoPanel.metadata.origin_country,
+                                ) &&
+                                flightInfoPanel.metadata.origin_country !== "NA"
+                                    ? flightInfoPanel.metadata.origin_country
+                                    : "Inconnu"}
+                            </div>
+                        </div>
+
                         {#if isValidValue(flightInfoPanel.metadata.photo_url) && flightInfoPanel.metadata.photo_url !== "NA"}
-                            <div class="photo-container">
+                            <div class="aircraft-img">
                                 <img
                                     src={flightInfoPanel.metadata.photo_url}
                                     alt="Photo de l'aéronef"
@@ -1183,6 +1168,7 @@
     @media (max-width: 900px) {
         .map-wrapper {
             flex-direction: column;
+            gap: 16px;
         }
         .map {
             height: 450px;
@@ -1214,16 +1200,26 @@
     }
 
     .flight-info-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
         width: 320px;
-        background: rgba(15, 23, 42, 0.95);
+        background: rgba(
+            15,
+            23,
+            42,
+            0.9
+        ); /* Slightly more opaque for better visibility */
         border-radius: 12px;
         padding: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        max-height: 600px;
+        border: 1px solid rgba(255, 255, 255, 0.1); /* Back to subtle border */
+        backdrop-filter: blur(12px);
+        max-height: calc(100% - 40px);
         overflow-y: auto;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        transition: transform 0.3s ease-out;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+        z-index: 5000; /* Ensure it stays above map controls and popups */
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: auto; /* Ensure interactions works */
     }
 
     @media (max-width: 900px) {
@@ -1344,6 +1340,78 @@
     .photo-container img {
         width: 100%;
         height: auto;
+        display: block;
+    }
+
+    /* Refined styles to match scatter plot panel */
+    .time-badge {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .flight-main {
+        margin-bottom: 20px;
+    }
+
+    .route-info {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+
+    .route-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 13px;
+    }
+
+    .route-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .route-row .label {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .route-row .value {
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 500;
+        text-align: right;
+        max-width: 160px;
+    }
+
+    .metadata-info {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+
+    .metadata-info .model {
+        font-size: 14px;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    .metadata-info .registration {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .aircraft-img {
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .aircraft-img img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
         display: block;
     }
 
