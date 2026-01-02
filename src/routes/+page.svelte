@@ -6,6 +6,7 @@
     import FlightMap from "$lib/components/FlightMap.svelte";
     import FlightSummary from "$lib/components/FlightSummary.svelte";
     import bannerImage from "$lib/assets/banner_LAT_dark.png";
+    import heroImage from "$lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg";
 
     let scrollY = $state(0);
     let mobileMenuOpen = $state(false);
@@ -112,10 +113,7 @@
 
     <div class="hero">
         <div class="hero-bg" style="transform: translateY({scrollY * 0.4}px)">
-            <img
-                src="/src/lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg"
-                alt="Lausanne-Blécherette Airport"
-            />
+            <img src={heroImage} alt="Lausanne-Blécherette Airport" />
             <div class="hero-overlay"></div>
         </div>
         <div
