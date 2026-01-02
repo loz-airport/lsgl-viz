@@ -6,7 +6,7 @@
     import FlightMap from "$lib/components/FlightMap.svelte";
     import FlightSummary from "$lib/components/FlightSummary.svelte";
     import bannerImage from "$lib/assets/banner_LAT_dark.png";
-    import heroImage from "$lib/assets/Aerial_image_of_the_Lausanne-La_Blécherette_airfield.jpg";
+    import heroImage from "$lib/assets/hero_lausanne_airfield.jpg";
 
     let scrollY = $state(0);
     let mobileMenuOpen = $state(false);
