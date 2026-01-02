@@ -346,7 +346,7 @@
                     >
                     ou
                     <a
-                        href="https://www.buymeacoffee.com/guytell"
+                        href="https://buymeacoffee.com/guytell?l=fr"
                         target="_blank">offrez-moi un café</a
                     >
                 </p>
