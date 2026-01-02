@@ -313,6 +313,26 @@
 		z-index: 10000;
 		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
 		backdrop-filter: blur(4px);
+		transition: transform 0.2s ease-out;
+	}
+
+	@media (max-width: 600px) {
+		.custom-tooltip {
+			left: 0 !important;
+			right: 0 !important;
+			bottom: 0 !important;
+			top: auto !important;
+			width: 100%;
+			border-radius: 16px 16px 0 0;
+			padding: 20px;
+			background: rgba(30, 41, 59, 0.98);
+			border-top: 1px solid rgba(255, 255, 255, 0.3);
+			border-left: none;
+			border-right: none;
+			border-bottom: none;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
 	}
 
 	.tooltip-date {
@@ -402,6 +422,18 @@
 		justify-content: center;
 		min-height: 300px;
 		color: rgba(255, 255, 255, 0.6);
+	}
+
+	@media (max-width: 600px) {
+		.chart-container {
+			padding: 16px;
+		}
+		.chart {
+			min-height: 300px;
+		}
+		h2 {
+			font-size: 18px;
+		}
 	}
 
 	:global(.chart svg) {

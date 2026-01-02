@@ -7,6 +7,7 @@
     import bannerImage from "$lib/assets/banner_LAT_dark.png";
 
     let scrollY = $state(0);
+    let mobileMenuOpen = $state(false);
 
     onMount(() => {
         flightStore.loadData();
@@ -73,17 +74,40 @@
         <div class="nav-content">
             <img src={bannerImage} alt="Logo" class="nav-logo" />
             <span class="nav-title">LSGL Tracker</span>
-            <div class="nav-links">
-                <a href="#vols-quotidiens">Statistiques</a>
-                <a href="#map">Carte</a>
-                <a href="#resources">Ressources</a>
+            <div class="nav-links" class:open={mobileMenuOpen}>
+                <a
+                    href="#vols-quotidiens"
+                    onclick={() => (mobileMenuOpen = false)}>Statistiques</a
+                >
+                <a href="#map" onclick={() => (mobileMenuOpen = false)}>Carte</a
+                >
+                <a href="#resources" onclick={() => (mobileMenuOpen = false)}
+                    >Ressources</a
+                >
                 <a
                     href="https://github.com/loz-airport/LSGL_tracker"
-                    target="_blank">GitHub</a
+                    target="_blank"
+                    onclick={() => (mobileMenuOpen = false)}>GitHub</a
                 >
             </div>
+            <button
+                class="mobile-menu-toggle"
+                onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+                aria-label="Menu"
+            >
+                <span class="bar" class:open={mobileMenuOpen}></span>
+                <span class="bar" class:open={mobileMenuOpen}></span>
+                <span class="bar" class:open={mobileMenuOpen}></span>
+            </button>
         </div>
     </nav>
+
+    {#if mobileMenuOpen}
+        <div
+            class="mobile-overlay"
+            onclick={() => (mobileMenuOpen = false)}
+        ></div>
+    {/if}
 
     <div class="hero">
         <div class="hero-bg" style="transform: translateY({scrollY * 0.4}px)">
@@ -384,6 +408,35 @@
         color: #fff;
     }
 
+    .mobile-menu-toggle {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        z-index: 1001;
+    }
+
+    .mobile-menu-toggle .bar {
+        width: 24px;
+        height: 2px;
+        background: #fff;
+        border-radius: 2px;
+        transition: all 0.3s;
+    }
+
+    .mobile-menu-toggle .bar.open:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+    }
+    .mobile-menu-toggle .bar.open:nth-child(2) {
+        opacity: 0;
+    }
+    .mobile-menu-toggle .bar.open:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+    }
+
     /* Hero Section */
     .hero {
         position: relative;
@@ -639,6 +692,12 @@
         gap: 60px;
     }
 
+    @media (max-width: 768px) {
+        .dashboard {
+            gap: 40px;
+        }
+    }
+
     .dashboard :global(.chart-container) {
         margin-bottom: 0; /* Override component margin */
     }
@@ -696,8 +755,17 @@
 
     .resources-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 60px;
+    }
+
+    @media (max-width: 768px) {
+        .resources-grid {
+            gap: 40px;
+        }
+        .resources-section {
+            padding: 40px 24px;
+        }
     }
 
     .resource-group h3 {
@@ -774,25 +842,86 @@
 
     @media (max-width: 768px) {
         .nav-floating {
-            padding: 16px 20px;
+            padding: 12px 16px;
+            width: calc(100% - 32px);
+        }
+        .mobile-menu-toggle {
+            display: flex;
         }
         .nav-links {
-            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 280px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            padding: 100px 40px;
+            gap: 32px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-links.open {
+            transform: translateX(0);
+        }
+        .nav-links a {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .mobile-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+        }
+        .nav-logo {
+            font-size: 16px;
+        }
+        .hero-logo {
+            height: 80px;
+            margin-bottom: 24px;
         }
         .hero-title {
             margin-bottom: 16px;
         }
+        .eyebrow {
+            font-size: 14px;
+            letter-spacing: 4px;
+        }
+        .main-title {
+            font-size: 32px;
+        }
         .hero-tagline {
+            font-size: 16px;
             margin-bottom: 32px;
+            padding: 0 20px;
         }
         main {
-            padding: 0 20px 60px;
+            padding: 0 16px 60px;
         }
         .info-section {
-            padding: 40px 24px;
+            padding: 40px 20px;
+            margin-bottom: 40px;
         }
         .info-content h2 {
-            font-size: 32px;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+        .info-grid {
+            gap: 16px;
+        }
+        .resources-section {
+            padding: 32px 20px;
+            margin-bottom: 40px;
+        }
+        .resources-content h2 {
+            font-size: 24px;
+            margin-bottom: 32px;
         }
     }
 

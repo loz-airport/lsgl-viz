@@ -1072,6 +1072,22 @@
         align-items: center;
     }
 
+    @media (max-width: 600px) {
+        .map-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .controls {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .date-selector {
+            font-size: 13px;
+            padding: 6px 12px;
+        }
+    }
+
     .date-selector-label {
         display: flex;
         align-items: center;
@@ -1155,6 +1171,15 @@
         overflow: hidden;
     }
 
+    @media (max-width: 900px) {
+        .map-wrapper {
+            flex-direction: column;
+        }
+        .map {
+            height: 450px;
+        }
+    }
+
     .animation-button {
         background: rgba(59, 130, 246, 0.2);
         color: #60a5fa;
@@ -1189,6 +1214,26 @@
         max-height: 600px;
         overflow-y: auto;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s ease-out;
+    }
+
+    @media (max-width: 900px) {
+        .flight-info-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 10000;
+            border-radius: 16px 16px 0 0;
+            max-height: 50vh;
+            border-left: none;
+            border-right: none;
+            border-bottom: none;
+            background: rgba(15, 23, 42, 0.98);
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+            padding: 24px 20px;
+        }
     }
 
     .panel-header {
