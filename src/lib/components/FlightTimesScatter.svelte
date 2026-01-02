@@ -334,7 +334,7 @@
                 </div>
                 <div class="legend-item">
                     <span class="line-marker"></span>
-                    <span class="label">Escales / Boucles</span>
+                    <span class="label">Boucles</span>
                 </div>
             </div>
         </div>
