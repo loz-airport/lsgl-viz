@@ -172,8 +172,8 @@
                         Tracker» vise à objectiver ces flux aériens. Combien
                         d’avions effectuent de simples boucles d'écolage ou des
                         trajets vers d'autres destinations? En récoltant et
-                        visualisant les données réelles de vol, nous offrons aux
-                        riverains comme aux passionnés de l'aéronautique un
+                        visualisant les données réelles de vol, ce site propose
+                        aux riverains comme aux passionnés de l'aéronautique un
                         outil factuel pour observer l'occupation du ciel
                         lausannois.
                     </p>
@@ -333,17 +333,22 @@
                     Initiative personnelle née de la pure curiosité, ce site a
                     été codé avec des compétences limitées en aéronautique et en
                     développement web, mais beaucoup de passion et de "vibe
-                    coding" (propulsé par import antigravity & Gemini).
+                    coding" (Antigravity & Gemini).
                 </p>
                 <p>
-                    Le projet est actuellement en phase Bêta : merci d'avance
+                    Le projet est actuellement en phase Bêta: merci d'avance
                     pour votre indulgence face aux inévitables bugs.
                 </p>
                 <p class="footer-cta">
                     Vous appréciez l'initiative ? ☕ <a
                         href="https://github.com/loz-airport/LSGL_tracker"
                         target="_blank">Contribuez au développement</a
-                    > ou offrez-moi un café
+                    >
+                    ou
+                    <a
+                        href="https://www.buymeacoffee.com/guytell"
+                        target="_blank">offrez-moi un café</a
+                    >
                 </p>
             </div>
 
@@ -360,11 +365,17 @@
                         target="_blank"
                         rel="noopener">OpenSky Network</a
                     >
-                    · 💻 Code disponible en Open Source sur
+                    · 💻 Code disponible en open source sur GitHub:
                     <a
                         href="https://github.com/loz-airport/LSGL_tracker"
                         target="_blank"
-                        rel="noopener">GitHub</a
+                        rel="noopener">données actualisées en continu</a
+                    >
+                    &
+                    <a
+                        href="https://github.com/loz-airport/lsgl-viz"
+                        target="_blank"
+                        rel="noopener">ce site</a
                     >
                 </small>
             </div>
