@@ -48,7 +48,10 @@
             .slice(0, 10)
             .flatMap((d) => {
                 const info = flightStore.getAirportInfo(d.icao);
-                let airportName = info?.name || d.icao;
+                let rawName = info?.name || d.icao;
+                // Strip "Airport" from the end
+                let airportName = rawName.replace(/\sAirport$/, "");
+
                 const countryCode = info?.country ? ` (${info.country})` : "";
 
                 if (d.icao === "LSGL") {
@@ -153,6 +156,7 @@
             color: {
                 domain: ["Atterrissages", "Décollages"],
                 range: ["#3b82f6", "#f97316"],
+                legend: true,
             },
             marks: [
                 Plot.barX(
@@ -500,8 +504,24 @@
     }
 
     /* SVG styling override */
-    :global(.aircraft-chart svg text) {
+    :global(.aircraft-chart svg text),
+    :global(.chart-container svg text) {
         font-family: "Outfit", sans-serif !important;
+    }
+
+    /* Legend styling */
+    :global(.chart-container figure) {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    :global(.chart-container [class*="legend"]) {
+        color: white !important;
+        font-family: "Outfit", sans-serif !important;
+        font-size: 12px !important;
+        margin-bottom: 8px;
     }
 
     .aircraft-card {
