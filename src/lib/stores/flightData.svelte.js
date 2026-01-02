@@ -59,6 +59,16 @@ class FlightStore {
         return null;
     }
 
+    // Helper to get aircraft info
+    getAircraftInfo(icao24) {
+        if (!icao24) return null;
+        const code = String(icao24).toLowerCase();
+        return this.aircraftMetadata.find(m => {
+            const metaIcao = (m.ICAO24 || m.icao24);
+            return metaIcao && String(metaIcao).toLowerCase() === code;
+        }) || null;
+    }
+
     // Helper to get flights filtered by days or date range with caching
     getFilteredFlights(days, startDate = null, endDate = null) {
         // Create cache key

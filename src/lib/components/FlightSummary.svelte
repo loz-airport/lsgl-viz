@@ -82,56 +82,75 @@
     // Top 10 Aircraft
     const topAircraft = $derived.by(() => {
         const counts = {};
-
-        arrivals.forEach((f) => {
+        // Helper to process flight for counting
+        const processFlight = (f, type) => {
             const icao24 = f.ICAO24;
             if (!icao24) return;
-            if (!counts[icao24])
+
+            // Get metadata helper
+            const meta = flightStore.getAircraftInfo(icao24);
+
+            if (!counts[icao24]) {
                 counts[icao24] = {
                     icao24,
                     arrivals: 0,
                     departures: 0,
                     total: 0,
-                    metadata: f.metadata,
+                    metadata: meta,
+                    // Capture call_sign from flight data if available (it's not in metadata usually)
+                    callsign:
+                        f.call_sign && f.call_sign !== "NA"
+                            ? f.call_sign
+                            : null,
                 };
-            counts[icao24].arrivals++;
-            counts[icao24].total++;
-        });
+            }
 
-        departures.forEach((f) => {
-            const icao24 = f.ICAO24;
-            if (!icao24) return;
-            if (!counts[icao24])
-                counts[icao24] = {
-                    icao24,
-                    arrivals: 0,
-                    departures: 0,
-                    total: 0,
-                    metadata: f.metadata,
-                };
-            counts[icao24].departures++;
+            if (type === "arrival") counts[icao24].arrivals++;
+            else counts[icao24].departures++;
+
             counts[icao24].total++;
-        });
+
+            // Update metadata/callsign if better info found
+            if (!counts[icao24].metadata && meta) {
+                counts[icao24].metadata = meta;
+            }
+            if (
+                !counts[icao24].callsign &&
+                f.call_sign &&
+                f.call_sign !== "NA"
+            ) {
+                counts[icao24].callsign = f.call_sign;
+            }
+        };
+
+        arrivals.forEach((f) => processFlight(f, "arrival"));
+        departures.forEach((f) => processFlight(f, "departure"));
 
         return Object.values(counts)
             .sort((a, b) => b.total - a.total)
             .slice(0, 10)
-            .flatMap((d) => [
-                {
-                    icao24: d.icao24,
-                    type: "Landings",
-                    count: d.arrivals,
-                    metadata: d.metadata,
-                    callsign: d.metadata?.callsign || d.icao24,
-                },
-                {
-                    icao24: d.icao24,
-                    type: "Take-offs",
-                    count: d.departures,
-                    metadata: d.metadata,
-                    callsign: d.metadata?.callsign || d.icao24,
-                },
-            ]);
+            .flatMap((d) => {
+                // Determine best display label: callsign > registration > icao24
+                const label =
+                    d.callsign || d.metadata?.registration || d.icao24;
+
+                return [
+                    {
+                        icao24: d.icao24,
+                        type: "Atterrissages",
+                        count: d.arrivals,
+                        metadata: d.metadata,
+                        label: label,
+                    },
+                    {
+                        icao24: d.icao24,
+                        type: "Décollages",
+                        count: d.departures,
+                        metadata: d.metadata,
+                        label: label,
+                    },
+                ];
+            });
     });
 
     function renderCharts() {
@@ -194,13 +213,25 @@
 
         // Render Aircraft Chart
         aircraftContainer.innerHTML = "";
+
+        // Determine sorted order for x-axis
+        const aircraftOrder = [...new Set(topAircraft.map((d) => d.icao24))];
+
         const aircraftPlot = Plot.plot({
             width: aircraftContainer.clientWidth,
             height: 350,
-            x: { label: null, padding: 0.4 },
-            y: { label: "Performance", grid: true },
+            x: {
+                label: null,
+                padding: 0.4,
+                domain: aircraftOrder,
+                tickFormat: (icao) => {
+                    const d = topAircraft.find((a) => a.icao24 === icao);
+                    return d?.label || icao;
+                },
+            },
+            y: { label: "Nombre de vols", grid: true },
             color: {
-                domain: ["Landings", "Take-offs"],
+                domain: ["Atterrissages", "Décollages"],
                 range: ["#60a5fa", "#fb923c"],
             },
             marks: [
@@ -238,9 +269,9 @@
                     (a) => a.icao24 === d.icao24,
                 );
                 const landings =
-                    matches.find((m) => m.type === "Landings")?.count || 0;
+                    matches.find((m) => m.type === "Atterrissages")?.count || 0;
                 const takeoffs =
-                    matches.find((m) => m.type === "Take-offs")?.count || 0;
+                    matches.find((m) => m.type === "Décollages")?.count || 0;
 
                 hoveredAircraft = {
                     ...d,
@@ -323,8 +354,7 @@
                 >
                     <div class="tooltip-header">
                         <span class="tooltip-callsign"
-                            >{hoveredAircraft.metadata?.call_sign ||
-                                hoveredAircraft.icao24}</span
+                            >{hoveredAircraft.label}</span
                         >
                         <span class="tooltip-icao"
                             >{hoveredAircraft.icao24}</span
@@ -332,7 +362,7 @@
                     </div>
 
                     <div class="tooltip-body">
-                        {#if hoveredAircraft.metadata?.photo_url && hoveredAircraft.metadata.photo_url !== "NA"}
+                        {#if isValidValue(hoveredAircraft.metadata?.photo_url)}
                             <div class="tooltip-photo">
                                 <img
                                     src={hoveredAircraft.metadata.photo_url}
@@ -345,16 +375,29 @@
                             <div class="info-row">
                                 <span class="label">Modèle:</span>
                                 <span class="value"
-                                    >{hoveredAircraft.metadata?.model ||
-                                        "Inconnu"}</span
+                                    >{isValidValue(
+                                        hoveredAircraft.metadata?.model,
+                                    )
+                                        ? hoveredAircraft.metadata.model
+                                        : "Inconnu"}</span
                                 >
                             </div>
                             <div class="info-row">
                                 <span class="label">Pays:</span>
                                 <span class="value"
-                                    >{hoveredAircraft.metadata
-                                        ?.country_of_registration ||
-                                        "Inconnu"}</span
+                                    >{isValidValue(
+                                        hoveredAircraft.metadata
+                                            ?.origin_country,
+                                    )
+                                        ? hoveredAircraft.metadata
+                                              .origin_country
+                                        : isValidValue(
+                                                hoveredAircraft.metadata
+                                                    ?.country_of_registration,
+                                            )
+                                          ? hoveredAircraft.metadata
+                                                .country_of_registration
+                                          : "Inconnu"}</span
                                 >
                             </div>
                             <div class="info-divider"></div>
