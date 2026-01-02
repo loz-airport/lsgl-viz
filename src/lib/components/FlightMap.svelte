@@ -470,17 +470,23 @@
                 const p1 = pathPoints[i];
                 const p2 = pathPoints[i + 1];
 
+                const alt1 =
+                    p1.baro_altitude ?? p1.geo_altitude ?? p1.altitude ?? 0;
+                const alt2 =
+                    p2.baro_altitude ?? p2.geo_altitude ?? p2.altitude ?? 0;
+
                 const avgAlt = Math.max(
-                    610, // LSGL elevation is ~622m
-                    ((p1.altitude || 0) + (p2.altitude || 0)) / 2,
+                    622, // LSGL elevation is ~622m
+                    (alt1 + alt2) / 2,
                 );
 
-                // Fine-tuned inverse log relationship
-                // Near ground (630m): 0.14 / log10(630/580) ≈ 4px
-                // Cruise (10000m): 0.14 / log10(10000/580) ≈ 0.11px
-                const logRatio = Math.log10(avgAlt / 580);
-                const weight = Math.max(0.05, 0.14 / logRatio);
-                const opacity = Math.min(1, Math.max(0.15, 0.5 / logRatio));
+                // Re-calibrated inverse log relationship
+                // k / log10(alt/offset)
+                // At 630m: 0.75 / log10(630/440) ≈ 5px (Max)
+                // At 10000m: 0.75 / log10(10000/440) ≈ 0.55px (Min)
+                const logRatio = Math.log10(avgAlt / 440);
+                const weight = Math.min(5, Math.max(0.5, 0.75 / logRatio));
+                const opacity = Math.min(1, Math.max(0.2, 0.8 / logRatio));
 
                 const polyline = L.polyline(
                     [
