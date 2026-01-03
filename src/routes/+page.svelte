@@ -282,6 +282,15 @@
                         </li>
                         <li>
                             <a
+                                href="https://www.lausanne.ch/apps/actualites/Next/serve.php?id=13773"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                            Résultats des évaluations d’impacts de l’aéroport (Ville de Lausanne, 2023)
+                            </a>    
+                        </li>
+                        <li>
+                            <a
                                 href="https://www.lematin.ch/story/nuisances-a-laeroport-de-la-blecherette-tout-va-tres-bien-selon-berne-519920535055"
                                 target="_blank"
                                 rel="noopener"
@@ -387,6 +396,7 @@
     .app {
         min-height: 100vh;
         background: #0f172a;
+        overflow-x: hidden; /* Prevent horizontal scroll causing white/black bars */
     }
 
     /* Floating Navigation */

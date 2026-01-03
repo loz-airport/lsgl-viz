@@ -1216,6 +1216,7 @@
         border-radius: 12px;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.05);
+        background: #0f172a; /* Fallback background color matching app bg */
     }
 
     @media (max-width: 900px) {
@@ -1225,6 +1226,8 @@
         }
         .map {
             height: 450px;
+            width: 100%;
+            min-height: 450px; /* Ensure height on mobile */
         }
     }
 

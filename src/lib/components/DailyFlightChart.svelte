@@ -140,8 +140,10 @@
 				];
 			}
 
+			const isMobile = window.innerWidth < 600;
+
 			const plotOptions = {
-				marginLeft: 60,
+				marginLeft: isMobile ? 40 : 60,
 				marginBottom: 50,
 				width: container.offsetWidth > 0 ? container.offsetWidth : 600,
 				height: 400,
@@ -156,6 +158,11 @@
 					tickFormat: (d) => {
 						const date = d instanceof Date ? d : new Date(d);
 						if (isNaN(date.getTime())) return "";
+						if (isMobile) {
+							return new Intl.DateTimeFormat("fr-CH", {
+								day: "numeric",
+							}).format(date);
+						}
 						return new Intl.DateTimeFormat("fr-CH", {
 							month: "short",
 							day: "numeric",

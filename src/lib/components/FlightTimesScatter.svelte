@@ -14,6 +14,10 @@
 
     // Track previous data length to avoid unnecessary re-renders
     let prevDataLength = $state(0);
+    
+    // Resize observer for responsive chart
+    /** @type {ResizeObserver} */
+    let resizeObserver;
 
     // Common airports mapping
     const COMMON_AIRPORTS = {
@@ -70,6 +74,10 @@
         const rawData = $state.snapshot(data);
         if (!container) return;
         container.innerHTML = "";
+
+        const isMobile = window.innerWidth < 600;
+        const margin = isMobile ? 40 : 60;
+        const width = container.offsetWidth > 0 ? container.offsetWidth : (isMobile ? window.innerWidth - 32 : 700);
 
         // Prepare data with time of day
         // Group by aircraft and date to facilitate connections
@@ -168,9 +176,9 @@
 
         try {
             const plot = Plot.plot({
-                marginLeft: 60,
+                marginLeft: margin,
                 marginBottom: 50,
-                width: container.offsetWidth > 0 ? container.offsetWidth : 700,
+                width: width,
                 height: 500,
                 style: {
                     background: "transparent",
@@ -269,11 +277,26 @@
         if (data.length > 0) {
             renderChart();
         }
+
+        // Setup resize observer
+        if (container) {
+            resizeObserver = new ResizeObserver(() => {
+                // Debounce resize updates
+                clearTimeout(container._renderTimeout);
+                container._renderTimeout = setTimeout(() => {
+                    renderChart();
+                }, 200);
+            });
+            resizeObserver.observe(container);
+        }
     });
 
     onDestroy(() => {
         if (container?._renderTimeout) {
             clearTimeout(container._renderTimeout);
+        }
+        if (resizeObserver) {
+            resizeObserver.disconnect();
         }
     });
 

@@ -156,19 +156,27 @@
     function renderCharts() {
         if (!airportsContainer || !aircraftContainer) return;
 
+        const isMobile = window.innerWidth < 600;
+        const margin = isMobile ? 120 : 220;
+
         // Render Airports Chart
         airportsContainer.innerHTML = "";
         const airportPlot = Plot.plot({
             width: airportsContainer.clientWidth,
             height: 350,
-            marginLeft: 220,
+            marginLeft: margin,
             x: { label: "Nombre de vols", grid: true },
             y: {
                 label: null,
                 domain: [...new Set(topAirports.map((d) => d.icao))],
                 tickFormat: (icao) => {
                     const entry = topAirports.find((a) => a.icao === icao);
-                    return entry ? entry.name : icao;
+                    let name = entry ? entry.name : icao;
+                    // Truncate on mobile if too long
+                    if (isMobile && name.length > 15) {
+                        return name.substring(0, 15) + "...";
+                    }
+                    return name;
                 },
                 tickSize: 0,
             },
