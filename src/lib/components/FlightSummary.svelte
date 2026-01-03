@@ -8,6 +8,7 @@
 
     let airportsContainer = $state();
     let aircraftContainer = $state();
+    /** @type {any} */
     let hoveredAircraft = $state(null);
     let tooltipPos = $state({ x: 0, y: 0 });
 
@@ -23,6 +24,7 @@
 
     // Top 10 Connected Airports
     const topAirports = $derived.by(() => {
+        /** @type {Record<string, any>} */
         const counts = {};
 
         arrivals.forEach((f) => {
@@ -81,8 +83,13 @@
 
     // Top 10 Aircraft
     const topAircraft = $derived.by(() => {
+        /** @type {Record<string, any>} */
         const counts = {};
         // Helper to process flight for counting
+        /**
+         * @param {any} f
+         * @param {string} type
+         */
         const processFlight = (f, type) => {
             const icao24 = f.ICAO24;
             if (!icao24) return;
@@ -264,11 +271,11 @@
         // but Plot might reorder. A safer way is to use Plot's own interactivity if possible,
         // but for a "WOW" effect, custom DOM tooltips are better.
         // Let's use a simpler mapping: we know topAircraft has 20 entries (10 aircraft * 2 types)
-        bars.forEach((bar, i) => {
+        bars.forEach((/** @type {any} */ bar, /** @type {number} */ i) => {
             bar.style.cursor = "pointer";
             bar.style.transition = "filter 0.2s";
 
-            bar.addEventListener("mouseenter", (e) => {
+            bar.addEventListener("mouseenter", (/** @type {MouseEvent} */ e) => {
                 const d = topAircraft[i];
                 if (!d) return;
 
@@ -291,7 +298,7 @@
                 bar.style.filter = "brightness(1.5)";
             });
 
-            bar.addEventListener("mousemove", (e) => {
+            bar.addEventListener("mousemove", (/** @type {MouseEvent} */ e) => {
                 updateTooltipPos(e);
             });
 
@@ -302,6 +309,7 @@
         });
     }
 
+    /** @param {MouseEvent} e */
     function updateTooltipPos(e) {
         const rect = aircraftContainer.getBoundingClientRect();
         tooltipPos = {
@@ -491,6 +499,7 @@
         margin-bottom: 8px;
         background: linear-gradient(135deg, #fff, #60a5fa);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
 
@@ -559,7 +568,7 @@
         }
 
         .glass {
-            padding: 24px;
+            padding: 24px 16px;
         }
     }
 

@@ -107,7 +107,13 @@
     {#if mobileMenuOpen}
         <div
             class="mobile-overlay"
+            role="button"
+            tabindex="0"
             onclick={() => (mobileMenuOpen = false)}
+            onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") mobileMenuOpen = false;
+            }}
+            aria-label="Close menu"
         ></div>
     {/if}
 
@@ -439,6 +445,7 @@
         font-size: 18px;
         background: linear-gradient(135deg, #fff, #94a3b8);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
 
@@ -573,6 +580,7 @@
     .gradient {
         background: linear-gradient(135deg, #60a5fa, #f97316);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
 
@@ -809,6 +817,7 @@
         letter-spacing: -0.5px;
         background: linear-gradient(135deg, #fff, #94a3b8);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
 
@@ -932,10 +941,11 @@
         text-decoration-thickness: 2px;
     }
 
+    /* Mobile adjustments */
     @media (max-width: 768px) {
         .nav-floating {
             padding: 12px 16px;
-            width: calc(100% - 32px);
+            width: 100%;
         }
         .mobile-menu-toggle {
             display: flex;
@@ -994,10 +1004,13 @@
             padding: 0 20px;
         }
         main {
-            padding: 0 16px 60px;
+            padding: 0 12px 60px;
         }
-        .info-section {
-            padding: 40px 20px;
+        .info-section,
+        .chart-section,
+        .resources-section {
+            padding: 24px 16px;
+            border-radius: 20px;
             margin-bottom: 40px;
         }
         .info-content h2 {
@@ -1007,15 +1020,15 @@
         .info-grid {
             gap: 16px;
         }
-        .resources-section {
-            padding: 32px 20px;
-            margin-bottom: 40px;
-        }
         .resources-content h2 {
             font-size: 24px;
             margin-bottom: 32px;
         }
+        .chart-section.map-full {
+            border-radius: 20px;
+        }
     }
+
 
     :global(figure) {
         margin: 0;

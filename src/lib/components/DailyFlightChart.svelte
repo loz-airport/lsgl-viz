@@ -7,9 +7,13 @@
 
 	let container = $state();
 	let period = $state(7);
+	/** @type {any} */
 	let hoveredData = $state(null);
 	let tooltipPos = $state({ x: 0, y: 0 });
 
+	/**
+	 * @param {number} newPeriod
+	 */
 	function handlePeriodChange(newPeriod) {
 		period = newPeriod;
 		flightStore.dateRangeDays = newPeriod;
@@ -142,6 +146,7 @@
 
 			const isMobile = window.innerWidth < 600;
 
+			/** @type {any} */
 			const plotOptions = {
 				marginLeft: isMobile ? 40 : 60,
 				marginBottom: 50,
@@ -155,6 +160,7 @@
 				},
 				x: {
 					label: null,
+					/** @param {any} d */
 					tickFormat: (d) => {
 						const date = d instanceof Date ? d : new Date(d);
 						if (isNaN(date.getTime())) return "";
@@ -188,6 +194,7 @@
 				plotOptions.fx = {
 					label: null,
 					axis: "bottom",
+					/** @param {any} d */
 					tickFormat: (d) => {
 						const date = d instanceof Date ? d : new Date(d);
 						if (isNaN(date.getTime())) return "";
@@ -204,7 +211,7 @@
 			if (plot) {
 				container.appendChild(plot);
 
-				plot.addEventListener("input", (e) => {
+				plot.addEventListener("input", () => {
 					if (plot.value) {
 						hoveredData = plot.value;
 					} else {
@@ -224,6 +231,7 @@
 	});
 
 	onMount(() => {
+		/** @param {MouseEvent} e */
 		const handleMouseMove = (e) => {
 			tooltipPos = { x: e.clientX, y: e.clientY };
 		};
@@ -320,14 +328,16 @@
 			top: auto !important;
 			width: 100%;
 			border-radius: 16px 16px 0 0;
-			padding: 20px;
-			background: rgba(30, 41, 59, 0.98);
+			padding: 12px;
+			background: rgba(15, 23, 42, 0.98);
 			border-top: 1px solid rgba(255, 255, 255, 0.3);
 			border-left: none;
 			border-right: none;
 			border-bottom: none;
 			transform: translateY(0);
 			pointer-events: auto;
+			max-height: 40vh;
+			overflow-y: auto;
 		}
 	}
 

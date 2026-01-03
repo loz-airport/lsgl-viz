@@ -10,16 +10,21 @@
     let { arrivalStateVectors = [], departureStateVectors = [] } = $props();
 
     let selectedDateRange = $state("7");
+    /** @type {number | null} */
     let mapDateRangeDays = $state(7);
+    /** @type {Date | null} */
     let mapDateRangeStart = $state(null);
+    /** @type {Date | null} */
     let mapDateRangeEnd = $state(null);
     let isAnimating = $state(false);
     let animationInterval = $state(null);
     let currentFlightIndex = $state(0);
+    /** @type {any[]} */
     let animatedFlights = $state([]);
+    /** @type {any} */
     let flightInfoPanel = $state(null);
 
-    /** @type {HTMLDivElement} */
+    /** @type {HTMLDivElement | undefined} */
     let mapContainer = $state();
     /** @type {any} */
     let map = $state(null);
@@ -32,6 +37,10 @@
     const LSGL_LON = 6.617;
 
     // Helper to format date range
+    /**
+     * @param {Date} startDate
+     * @param {Date} endDate
+     */
     function formatDateRange(startDate, endDate) {
         const start = new Intl.DateTimeFormat("fr-CH", {
             day: "numeric",
@@ -95,6 +104,7 @@
     const dateRangeOptions = $derived(getDateRangeOptions());
 
     // Unified logic to update external date range parameters (internal state for filtering)
+    /** @param {string} rangeValue */
     function updateInternalDateRange(rangeValue) {
         const option = dateRangeOptions.find((opt) => opt.value === rangeValue);
         if (!option) return;
@@ -341,6 +351,10 @@
         });
 
         // Helper to get flight info and metadata for a flight ID
+        /**
+         * @param {string} flightId
+         * @param {boolean} isArrival
+         */
         const getFlightInfo = (flightId, isArrival) => {
             const flights = isArrival
                 ? flightStore.arrivalsData
@@ -367,6 +381,7 @@
         };
 
         // Helper function to check if a value is valid (not NA, null, undefined, or empty)
+        /** @param {any} value */
         const isValidValue = (value) => {
             return (
                 value &&
@@ -377,6 +392,10 @@
         };
 
         // Function to create popup content
+        /**
+         * @param {{ flight: any; metadata: any; }} flightInfo
+         * @param {boolean} isArrival
+         */
         const createPopupContent = (flightInfo, isArrival) => {
             if (!flightInfo) return "Informations non disponibles";
 
@@ -475,14 +494,22 @@
         };
 
         // Function to draw multi-segment colored paths based on altitude
+        /**
+         * @param {Array<any>} pathPoints
+         * @param {string} baseColor
+         * @param {string} flightId
+         * @param {boolean} isArrival
+         */
         const drawPath = (pathPoints, baseColor, flightId, isArrival) => {
             if (pathPoints.length < 2) return;
 
             const flightInfo = getFlightInfo(flightId, isArrival);
-            const popupContent = createPopupContent(flightInfo, isArrival);
+            const popupContent = createPopupContent(/** @type {any} */ (flightInfo), isArrival);
 
             // Create a feature group for this path to attach popup and handle hover
+            /** @type {any[]} */
             const pathSegments = [];
+            /** @type {any} */
             let popup = null;
 
             // Draw as multiple segments to have varying width/opacity per altitude
@@ -508,6 +535,7 @@
                 const weight = Math.min(5, Math.max(0.5, 0.75 / logRatio));
                 const opacity = Math.min(1, Math.max(0.2, 0.8 / logRatio));
 
+                /** @type {any} */
                 const polyline = L.polyline(
                     [
                         [p1.latitude, p1.longitude],
@@ -538,7 +566,7 @@
 
                 // Add hover effects - ONLY if not animating
                 pathSegments.forEach((segment, idx) => {
-                    segment.on("mouseover", function (e) {
+                    segment.on("mouseover", function (/** @type {any} */ e) {
                         if (isAnimating) return; // Disable hover during animation
 
                         // Highlight all segments of this path
@@ -578,6 +606,7 @@
         };
 
         // Prepare flights for animation (sorted by date, newest first, limited for performance)
+        /** @type {any[]} */
         const allFlightsForAnimation = [];
         const maxFlightsForAnimation = 50; // Limit for performance
 
@@ -735,6 +764,9 @@
         }
     }
 
+    /**
+     * @param {number} index
+     */
     function showFlightInAnimation(index) {
         if (index >= animatedFlights.length || !map) return;
 
@@ -742,6 +774,7 @@
         const currentFlightId = String(flight.flightId); // Ensure string
 
         // Update all layers
+        /** @type {any[]} */
         const currentSegments = [];
         let matchingLayers = 0;
 
@@ -908,6 +941,13 @@
                     {/each}
                 </select>
             </label>
+            <button
+                class="animation-button"
+                class:active={isAnimating}
+                onclick={() => (isAnimating ? stopAnimation() : startAnimation())}
+            >
+                {isAnimating ? "⏸ Arrêter" : "▶ Démarrer"}
+            </button>
         </div>
     </div>
     <div class="legend">
@@ -921,13 +961,6 @@
             <span class="opacity-box"></span>
             <span>Lignes fines = Haute altitude</span>
         </span>
-        <button
-            class="animation-button"
-            class:active={isAnimating}
-            onclick={() => (isAnimating ? stopAnimation() : startAnimation())}
-        >
-            {isAnimating ? "⏸ Arrêter" : "▶ Démarrer"} animation
-        </button>
     </div>
     <div class="map-wrapper">
         <div bind:this={mapContainer} class="map"></div>
@@ -1127,6 +1160,17 @@
         .controls {
             width: 100%;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .date-selector-label {
+            flex-grow: 1;
+        }
+        .animation-button {
+            flex-grow: 1;
+            margin-left: 0;
+            justify-content: center;
+            display: flex;
         }
         .date-selector {
             font-size: 13px;
@@ -1287,13 +1331,44 @@
             width: 100%;
             z-index: 10000;
             border-radius: 16px 16px 0 0;
-            max-height: 50vh;
+            max-height: 40vh; /* Kept limit but content will be smaller */
             border-left: none;
             border-right: none;
             border-bottom: none;
             background: rgba(15, 23, 42, 0.98);
             box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
-            padding: 24px 20px;
+            padding: 12px; /* Reduced padding */
+        }
+        .flight-info-panel .callsign {
+            font-size: 18px; /* Reduced font size */
+            margin-bottom: 2px;
+        }
+        .flight-info-panel .icao {
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        .aircraft-img {
+            max-height: 80px; /* Reduced image height */
+            margin-top: 8px;
+        }
+        .aircraft-img img {
+            height: 80px;
+        }
+        .panel-header {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+        }
+        .flight-main {
+            margin-bottom: 8px;
+        }
+        .route-info,
+        .metadata-info {
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+        .route-row {
+            margin-bottom: 4px;
+            font-size: 12px;
         }
     }
 
@@ -1334,69 +1409,6 @@
         color: rgba(255, 255, 255, 0.5);
         margin-bottom: 16px;
         font-family: monospace;
-    }
-
-    .info-section {
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .info-section:last-of-type {
-        border-bottom: none;
-    }
-
-    .section-title {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.4);
-        margin-bottom: 8px;
-    }
-
-    .info-item {
-        margin-bottom: 6px;
-        font-size: 14px;
-        color: rgba(255, 255, 255, 0.9);
-        line-height: 1.5;
-    }
-
-    .info-item strong {
-        color: rgba(255, 255, 255, 0.7);
-        font-weight: 500;
-        font-size: 13px;
-    }
-
-    .time-info {
-        font-size: 13px;
-        color: rgba(255, 255, 255, 0.6);
-        margin-top: 4px;
-    }
-
-    .sub-info {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.5);
-        margin-top: 2px;
-    }
-
-    .metadata-section {
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .photo-container {
-        margin-top: 16px;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .photo-container img {
-        width: 100%;
-        height: auto;
-        display: block;
     }
 
     /* Refined styles to match scatter plot panel */

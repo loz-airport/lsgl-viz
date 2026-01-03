@@ -12,35 +12,16 @@
     let hoveredFlight = $state(null);
     // tooltipPos is no longer needed as the tooltip is now a fixed panel
 
-    // Track previous data length to avoid unnecessary re-renders
-    let prevDataLength = $state(0);
-    
     // Resize observer for responsive chart
     /** @type {ResizeObserver} */
     let resizeObserver;
 
-    // Common airports mapping
-    const COMMON_AIRPORTS = {
-        LSGG: "Genève, Suisse",
-        LSZH: "Zurich, Suisse",
-        LFSB: "Bâle-Mulhouse, Suisse/France",
-        LSGK: "Saanen, Suisse",
-        LSGS: "Sion, Suisse",
-        LSGC: "Les Eplatures, Suisse",
-        LSZB: "Berne, Suisse",
-        LSZA: "Lugano, Suisse",
-        LFLB: "Chambéry, France",
-        LFLL: "Lyon Saint-Exupéry, France",
-        LFLP: "Annecy, France",
-    };
-
-    function getAirportName(code) {
-        if (!code) return null;
-        return COMMON_AIRPORTS[code] || null; // Return null if not found to fall back to code
-    }
-
     // Custom downward triangle symbol matching Plot's standard triangle size
     const downTriangle = {
+        /**
+         * @param {CanvasRenderingContext2D} context
+         * @param {number} size
+         */
         draw(context, size) {
             // Standard equilateral triangle has area = size
             // To match visual weight, we match the area and then scale up slightly (1.1x)
@@ -65,8 +46,11 @@
         }
     });
 
+    /**
+     * @param {string | number} newPeriod
+     */
     function handlePeriodChange(newPeriod) {
-        period = parseInt(newPeriod);
+        period = parseInt(String(newPeriod));
         flightStore.dateRangeDays = period;
     }
 
@@ -77,11 +61,10 @@
 
         const isMobile = window.innerWidth < 600;
         const margin = isMobile ? 40 : 60;
-        const width = container.offsetWidth > 0 ? container.offsetWidth : (isMobile ? window.innerWidth - 32 : 700);
+        const width = container.clientWidth > 0 ? container.clientWidth : (isMobile ? window.innerWidth - 32 : 700);
 
         // Prepare data with time of day
         // Group by aircraft and date to facilitate connections
-        const flightsByAircraftAndDate = {};
 
         const chartData = rawData
             .map((flight) => {
@@ -136,6 +119,7 @@
             .filter((d) => d !== null);
 
         // Build connection segments for loops only (tour de piste/école)
+        /** @type {Array<any>} */
         const connectionSegments = [];
         chartData.forEach((f) => {
             // Case 1: Record is a loop flight (departure AND arrival in same row)
@@ -177,6 +161,7 @@
         try {
             const plot = Plot.plot({
                 marginLeft: margin,
+                marginRight: 20,
                 marginBottom: 50,
                 width: width,
                 height: 500,
@@ -301,6 +286,10 @@
     });
 
     // Helper to format airport string
+    /**
+     * @param {string} type
+     * @param {any} flight
+     */
     function formatAirport(type, flight) {
         const code =
             type === "arrival"
@@ -321,6 +310,9 @@
     }
 
     // Helper to calculate duration
+    /**
+     * @param {any} flight
+     */
     function getDuration(flight) {
         if (flight.arrival_time && flight.departure_time) {
             const diff = Math.abs(flight.arrival_time - flight.departure_time);
@@ -455,8 +447,9 @@
                             src={hoveredFlight.metadata.photo_url}
                             alt="Aircraft"
                             onerror={(e) => {
-                                e.target.style.display = "none";
-                                const container = e.target.parentElement;
+                                const target = /** @type {HTMLImageElement} */ (e.target);
+                                target.style.display = "none";
+                                const container = target.parentElement;
                                 if (container) {
                                     container.innerHTML =
                                         '<div class="no-photo"><span>Photo non disponible</span></div>';
@@ -500,6 +493,7 @@
         .chart-container {
             grid-template-columns: 1fr;
             padding-bottom: 120px; /* Space for the bottom sheet */
+            gap: 16px;
         }
 
         .flight-detail-panel {
@@ -511,7 +505,7 @@
             background: rgba(15, 23, 42, 0.95) !important;
             border-top: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 16px 16px 0 0 !important;
-            padding: 16px !important;
+            padding: 12px !important;
             box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
             transform: translateY(100%);
             transition: transform 0.3s ease-out;
@@ -556,10 +550,6 @@
         font-size: 20px;
         font-weight: 700;
         color: #fff;
-    }
-
-    .subtitle {
-        display: none; /* Replaced by custom-legend */
     }
 
     .custom-legend {
